@@ -420,7 +420,7 @@ function openSheet(meal,entry){
 }
 async function closeSheet(){await stopScan();sh=null;$('#sheetRoot').innerHTML=''}
 function itemPer100(it){return 'per 100 g: '+nf(it.kcal)+' kcal · E '+nf(it.p,1)+' · K '+nf(it.c,1)+' · V '+nf(it.f,1)}
-function tagFor(it){return it.src==='own'?'<span class="tag">Mijn product</span>':it.src==='ai'?'<span class="tag ai">Schatting</span>':''}
+function tagFor(it){return it.src==='own'?'<span class="tag">Mijn product</span>':it.src==='ai'?'<span class="tag ai">Schatting</span>':it.src==='off'?'<span class="tag">Open Food Facts</span>':''}
 function searchLocal(q){
   var toks=norm(q).split(/\s+/).filter(Boolean);if(!toks.length)return [];
   var pool=S.products.map(function(p){return Object.assign({src:'own'},p)}).concat(DB);
@@ -478,7 +478,8 @@ function renderSheet(){
 function scanHTML(){
   var h='';
   if(sh.code){
-    h+='<div class="notice"><b class="num">'+esc(sh.code)+'</b><br>Deze barcode staat nog niet in je eigen producten. Vul de gegevens één keer in, dan herkent de app hem voortaan direct.</div>';
+    if(sh.lookup)return '<div class="notice"><b class="num">'+esc(sh.code)+'</b><br>Zoeken in Open Food Facts…</div>';
+    h+='<div class="notice"><b class="num">'+esc(sh.code)+'</b><br>'+(sh.offErr?'Open Food Facts is nu niet bereikbaar (geen internet?).':'Deze barcode staat niet in je eigen producten en niet in Open Food Facts.')+' Vul de gegevens één keer in, dan herkent de app hem voortaan direct.</div>';
     if(sampleFn&&sampleImages)h+='<label class="secondary" style="display:flex;align-items:center;justify-content:center;margin-bottom:10px">'+(sh.labelBusy?'Claude leest het etiket…':'📷 Laat AI het etiket lezen')+'<input type="file" accept="image/*" capture="environment" id="labelFile" hidden'+(sh.labelBusy?' disabled':'')+'></label>';
     h+='<button class="primary" data-act="manualcode">Zelf invullen</button><div class="or"><a href="#" data-act="rescan" style="color:var(--accent);font-weight:700">Andere barcode scannen</a></div>';
     if(sh.msg)h+='<div class="hint warn">'+esc(sh.msg)+'</div>';
@@ -490,7 +491,7 @@ function scanHTML(){
     '<label class="secondary" style="display:flex;align-items:center;justify-content:center">📷 Foto van barcode maken<input type="file" accept="image/*" capture="environment" id="barFile" hidden></label>'+
     '<div class="or">of typ de cijfers onder de barcode</div>'+
     '<div class="inline"><input id="barText" inputmode="numeric" placeholder="bijv. 8718452345678" aria-label="Barcode"><button data-act="bargo">Zoek</button></div>'+
-    '<div class="hint" style="margin-top:10px">Producten die je zelf hebt bewaard worden herkend. Een openbare productdatabase is vanuit deze pagina niet bereikbaar.</div>';
+    '<div class="hint" style="margin-top:10px">De app zoekt eerst in je eigen producten en daarna in Open Food Facts, een open database met miljoenen supermarktproducten.</div>';
   return h;
 }
 function portionHTML(){
@@ -499,6 +500,7 @@ function portionHTML(){
     '<div class="field"><label for="grams">Hoeveelheid (gram of ml)</label><input id="grams" type="text" inputmode="decimal" value="'+per+'"></div>'+
     '<div class="chips">'+[[0.5,'½ '+unit],[1,'1 '+unit],[2,'2 '+unit]].map(function(o){return '<button class="chip" data-g="'+Math.round(per*o[0])+'">'+esc(o[1])+' · '+nf(per*o[0])+' g</button>'}).join('')+'<button class="chip" data-g="100">100 g</button></div>'+
     '<div class="result"><b class="num" id="pk">0</b><span>kcal</span><div class="num" id="pm" style="margin-top:6px;font-size:14px"></div></div>';
+  if(it.src==='off')h+='<div class="hint" style="margin:-4px 0 10px">Gegevens uit Open Food Facts, een open database die door vrijwilligers wordt bijgehouden. Klopt iets niet? Vergelijk met de verpakking.</div>';
   if(it.src==='ai'||it.src==='label'||it.isNew)h+='<label class="check"><input type="checkbox" id="saveProd"'+(it.src!=='ai'?' checked':'')+'> Bewaar in Mijn producten'+(it.barcode?' (met barcode)':'')+'</label>';
   h+='<button class="primary" data-act="addportion">Toevoegen aan '+esc((MEALS.filter(function(x){return x[0]===sh.meal})[0]||['','maaltijd'])[1].toLowerCase())+'</button>';
   return h;
@@ -569,11 +571,54 @@ async function scanFromFile(file){
 }
 async function onCode(code){
   await stopScan();
-  if(!sh)return;
+  if(!sh||sh.lookup)return;
   code=String(code).trim();
   var p=S.products.find(function(x){return x.barcode&&x.barcode===code});
   if(p){sh.item=Object.assign({src:'own'},p);sh.mode='portion';toast('Product herkend');renderSheet();return}
-  sh.code=code;sh.msg='';renderSheet();
+  var mine=sh;
+  sh.code=code;sh.msg='';sh.offErr=false;sh.lookup=true;renderSheet();
+  var off=null;
+  try{off=await offLookup(code)}catch(e){mine.offErr=true}
+  mine.lookup=false;
+  if(sh!==mine||sh.mode!=='scan'||sh.code!==code)return; // gebruiker is intussen ergens anders heen gegaan
+  if(off){sh.item=off;sh.mode='portion';toast('Gevonden in Open Food Facts');}
+  renderSheet();
+}
+
+/* ---------- Open Food Facts ---------- */
+var OFFKEY='voedingstracker-off',OFFTTL=30*864e5; // cache 30 dagen
+function offCache(){try{return JSON.parse(localStorage.getItem(OFFKEY))||{}}catch(e){return {}}}
+function offStore(code,item){
+  try{var c=offCache();c[code]={t:Date.now(),item:item};
+    var keys=Object.keys(c);if(keys.length>300){keys.sort(function(a,b){return c[a].t-c[b].t}).slice(0,keys.length-300).forEach(function(k){delete c[k]})}
+    localStorage.setItem(OFFKEY,JSON.stringify(c))}catch(e){}
+}
+function offToItem(code,pr){
+  var n=pr&&pr.nutriments;if(!n)return null;
+  var kcal=n['energy-kcal_100g'];
+  if(!isFinite(kcal)&&isFinite(n['energy-kj_100g']))kcal=n['energy-kj_100g']/4.184;
+  if(!isFinite(kcal))return null; // zonder kcal hebben we niets aan het product
+  var name=String(pr.product_name_nl||pr.product_name||'Product').trim();
+  var brand=String(pr.brands||'').split(',')[0].trim();
+  if(brand&&name.toLowerCase().indexOf(brand.toLowerCase())<0)name+=' ('+brand+')';
+  var serving=num(pr.serving_quantity);
+  return {src:'off',isNew:true,barcode:code,name:name.slice(0,80),kcal:Math.round(num(kcal)),
+    p:r1(num(n.proteins_100g)),c:r1(num(n.carbohydrates_100g)),f:r1(num(n.fat_100g)),
+    portion:serving>0&&serving<2000?Math.round(serving):100,unit:'portie'};
+}
+async function offLookup(code){
+  var hit=offCache()[code];
+  if(hit&&Date.now()-hit.t<OFFTTL&&hit.item)return hit.item;
+  var ctl=new AbortController(),timer=setTimeout(function(){ctl.abort()},8000);
+  try{
+    var r=await fetch('https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(code)+'.json?fields=product_name,product_name_nl,brands,serving_quantity,nutriments',{signal:ctl.signal});
+    if(r.status===404)return null; // barcode onbekend
+    if(!r.ok)throw new Error('off '+r.status);
+    var j=await r.json();
+    var item=j&&j.status===1?offToItem(code,j.product):null;
+    if(item)offStore(code,item);
+    return item;
+  }finally{clearTimeout(timer)}
 }
 
 /* ---------- AI: zoeken en etiket ---------- */

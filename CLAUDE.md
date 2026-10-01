@@ -47,6 +47,7 @@ Belangrijkste functies:
 | Vandaag | `ringSVG`, `macroCard`, `streak`, `avg7`, `sparkline`, `heroMsg` |
 | Invoer-sheet | `openSheet`, `renderSheet`, `buildResults`, `searchLocal`, `portionHTML`, `updatePortion`, `manualHTML`, `saveProduct` |
 | Scanner | `loadScanLib`, `startScan`, `stopScan`, `scanFromFile`, `onCode` |
+| Open Food Facts | `offLookup` (fetch + cache, 8 s timeout), `offToItem` (OFF-product → item met `src:'off'`), `offCache`, `offStore` |
 | AI | `aiSearch` (zoeken), `readLabel` (etiketfoto), `askIdeas` (tips) |
 | Gewicht | `weightChart` (inline SVG), `weightPick`, `readoutFor` |
 | Tips | `remaining`, `suggestions`, `tipList`, `doCalc`, `showCalc` |
@@ -76,6 +77,7 @@ De ingebouwde database `FOODS` (±120 items, per 100 g, met `portion` en `unit`)
 ## Opslag
 
 - **Altijd:** `localStorage`, sleutel `voedingstracker-v1`, de hele `S` als JSON.
+- **Open Food Facts-cache:** `localStorage`, sleutel `voedingstracker-off`, `{barcode: {t, item}}`, 30 dagen geldig, max. 300 items. Alleen gevonden producten worden bewaard.
 - **Als `window.claude` beschikbaar is** (alleen in claude.ai): `db` + `user`. Pad `data/users/<uid>/` is privé per gebruiker. Daaronder:
   - doc `meta` met `{json}`: goals, weights, products, water, profile
   - doc `m-YYYY-MM` met `{json}`: alle dagen van die maand
@@ -106,7 +108,7 @@ De app is gebouwd zonder te kunnen draaien in een browser. Test dit eerst:
 - Entries onthouden geen gram of waarden per 100 g, dus een entry bewerken kan alleen op totalen.
 - "Mijn producten" kun je nu alleen toevoegen of overschrijven, niet bewerken of verwijderen.
 - "Eerder gegeten" opent het handmatige formulier, niet de hoeveelheidsstap.
-- Barcode wordt alleen gevonden in eigen producten (geen publieke database in route A).
+- Barcode: eerst eigen producten, dan Open Food Facts. Zoeken op naam gebruikt Open Food Facts nog niet.
 - Waarden uit AI-zoeken en etiketlezen zijn schattingen; de UI markeert dit ("Schatting").
 - Geen export/import, geen weekoverzicht, geen meerdere profielen.
 - Alleen Nederlands.
@@ -117,7 +119,7 @@ De app is gebouwd zonder te kunnen draaien in een browser. Test dit eerst:
 2. Weekoverzicht: gemiddelde kcal en macro's, grafiek per dag.
 3. Export/import als CSV/JSON (in een Artifact via de `downloads` capability).
 4. Favorieten en maaltijden combineren (bijv. "mijn standaard ontbijt").
-5. Route B: Open Food Facts (`https://world.openfoodfacts.org/api/v2/product/<barcode>.json` en zoek-API) voor echte barcode- en zoekresultaten, met cache in localStorage.
+5. Route B: Open Food Facts. **Barcode-opzoeking is klaar** (`offLookup`). Nog te doen: zoeken op naam via de zoek-API, met dezelfde cache-aanpak.
 6. Vitaminen/vezels/suiker indien de gebruiker dat wil.
 
 ## Werkafspraken
