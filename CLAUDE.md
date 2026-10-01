@@ -7,7 +7,7 @@ https://claude.ai/artifact/E3crA6XWdYoLPynBfrL9Ci
 
 ## Eerst beslissen: Artifact of zelf hosten
 
-Dit bepaalt wat er kan. Vraag de gebruiker welke route hij wil voordat je grote wijzigingen doet.
+Dit bepaalt wat er kan. **Gekozen op 2026-10-01: route B (zelf hosten).** Route A staat hieronder ter referentie, omdat de code nog `window.claude`-ondersteuning bevat.
 
 **Route A: blijven als claude.ai Artifact (huidige situatie)**
 - Opslag via `window.claude` capabilities `db` + `user` (privé per gebruiker), en AI via `sample`. Deze bestaan alleen binnen claude.ai. Lokaal is `window.claude` undefined en valt de app terug op `localStorage`.
