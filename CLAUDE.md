@@ -40,7 +40,7 @@ Geen package.json, geen tests, geen build. Lokaal draaien: open het bestand in e
 Alles zit in één IIFE met `"use strict"`. Globale variabelen binnen de IIFE:
 
 - `S`: de volledige app-state (zie datamodel).
-- `tab` (`today|week|weight|tips|goals`), `date` (geselecteerde dag), `week` (maandag van de getoonde week), `selDay` (aangetikte dag in de weekgrafiek), `range`, `selW`, `tipFocus`, `tipSeed`, `aiIdeas`, `aiBusy`, `calc`.
+- `tab` (`today|week|weight|tips|goals|settings`), `date` (geselecteerde dag), `week` (maandag van de getoonde week), `selDay` (aangetikte dag in de weekgrafiek), `range`, `selW`, `tipFocus`, `tipSeed`, `aiIdeas`, `aiBusy`, `calc`.
 - `sh`: toestand van de invoer-sheet (bottom sheet) of `null` als hij dicht is.
 - `sampleFn`, `sampleImages`, `dbCol`: capabilities, `null` als niet beschikbaar.
 
@@ -50,7 +50,7 @@ Belangrijkste functies:
 
 | Onderdeel | Functies |
 |---|---|
-| Tabbladen | `renderTabs`, `renderToday`, `renderWeight`, `renderTips`, `renderGoals` |
+| Tabbladen | `renderTabs`, `renderToday`, `renderWeight`, `renderTips`, `renderGoals`, `renderSettings` |
 | Vandaag | `renderToday` (datumbalk, samenvattingskaart met `ringSVG` + `macroCard`/`thinBar`, inklapbare maaltijden), `mealOpen` (welke maaltijden open zijn; `addEntry` klapt de maaltijd open, `data-toggle` klapt in/uit), `copyFromPrev('all'|maaltijd)` (kopieert van de dag vóór `date`; links `data-copy` alleen bij een lege dag/maaltijd) |
 | Week | `renderWeek`, `weekChart` (inline SVG, staven + doellijn, tik = `selDay`), `weekDays`, `weekAvg` (gelogde dagen vóór vandaag; vandaag alleen als er verder niets is), `mondayOf`, `isoWeek` |
 | Vaste maaltijden | `mealItem` (entry → onderdeel zonder id/meal), `mealHTML` (sheet-modus `meal`, `sh.draft`), `checkedItems`, `mealsCard` (Doelen). Toevoegen: `data-usemeal` in de zoek-sheet |
@@ -62,6 +62,8 @@ Belangrijkste functies:
 | Gewicht | `weightChart` (inline SVG), `weightPick`, `readoutFor` |
 | Tips | `remaining`, `suggestions`, `tipList`, `doCalc`, `showCalc` |
 | Doelen | `renderGoals`, `productsCard` (Mijn producten: tik = bewerken in de sheet, modus `product`) |
+| Instellingen | `renderSettings` (Weergave, Bijhouden, Opslag). Vinkjes `data-track`, doelen `data-tgoal` (opslaan bij `change`) |
+| Extra stoffen | `EXTRA` (sleutel, naam, max/min, standaarddoel, eenheid), `XK`, `tracked()`, `has`, `copyX` (gebruik deze om extra waarden mee te kopiëren), `rx` (afronden; cafeïne op hele mg), `extraBlock` (Vandaag/Week), `extraLine` (hoeveelheidsstap), `xFields`/`readX` (formulieren) |
 | Opslag | `loadLocal`, `saveLocal`, `markDirty`, `flush`, `initStore` |
 
 Events: twee `document`-brede `click` listeners. De eerste handelt alleen de sheet af (`if(!sh) return`), de tweede alleen de pagina (`if(sh) return`). Knoppen gebruiken `data-*` attributen (`data-act`, `data-tab`, `data-add`, `data-edit`, `data-pick`, enz.). Voeg nieuwe acties toe in de juiste listener.
@@ -70,7 +72,8 @@ Events: twee `document`-brede `click` listeners. De eerste handelt alleen de she
 
 ```js
 S = {
-  goals:    { kcal, p, c, f, kg },            // dagdoel + streefgewicht (kg=0: geen doel)
+  goals:    { kcal, p, c, f, kg, sug, fib, sat, salt, caf },
+                                               // dagdoel + streefgewicht (kg=0: geen doel) + doelen extra stoffen
   days:     { 'YYYY-MM-DD': [ {id, name, kcal, p, c, f, meal, g?, base?} ] },
                                                // meal: ontbijt | lunch | diner | snack
                                                // g + base {name, kcal, p, c, f, portion, unit, src}: alleen bij entries uit een product
@@ -80,20 +83,23 @@ S = {
   meals:    [ { id, name, items: [ {name, kcal, p, c, f, g?, base?} ] } ],
                                                // vaste maaltijden; items als entries zonder id/meal
   water:    { 'YYYY-MM-DD': aantalGlazen },   // geen UI meer (verwijderd 2026-10-02); data blijft bewaard
-  profile:  { sex, age, h, w, act, goal }      // invoer van de doelcalculator
+  profile:  { sex, age, h, w, act, goal },    // invoer van de doelcalculator
+  track:    { sug?, fib?, sat?, salt?, caf? }  // true = tonen (Instellingen → Bijhouden)
 }
 ```
 
 Voeding in `days` is al omgerekend naar de gegeten hoeveelheid (totalen: `kcal`, `p`, `c`, `f`). Entries uit een product (zoeken, scannen, Eerder gegeten, Tips) bewaren daarnaast `g` en een kopie van de waarden per 100 g in `base`. Bewerken gaat dan via de hoeveelheidsstap. Handmatige entries, entries van vóór 2026-10-02 en entries die via "Waarden zelf aanpassen" zijn gewijzigd hebben geen `g`/`base` en worden op totalen bewerkt. `base` is een kopie, dus een product bewerken of verwijderen verandert eerdere entries niet.
 
-De ingebouwde database `FOODS` (±120 items, per 100 g, met `portion` en `unit`) staat bovenaan het script en wordt omgezet naar `DB`. Waarden zijn gemiddelden uit eigen kennis, niet uit een officiële bron.
+**Extra stoffen** (sinds 2026-10-02): suiker `sug`, vezels `fib`, verzadigd vet `sat`, zout `salt` (gram) en cafeïne `caf` (mg). Optionele velden op items, `base`, entries, producten en maaltijd-onderdelen, op dezelfde basis als kcal (per 100 g bij producten/`base`, totaal bij entries). **Ontbreekt = onbekend, niet 0**; Vandaag meldt dan dat het totaal hoger kan zijn. Altijd opgeslagen, ook als ze niet aangevinkt zijn; aanvinken bepaalt alleen wat je ziet en welke invoervelden er zijn. Open Food Facts: `sugars_100g`, `fiber_100g`, `saturated-fat_100g`, `salt_100g` (of `sodium_100g` × 2,5), `caffeine_100g` (gram, × 1000). AI-zoeken en etiketlezen vragen ze (nog) niet op.
+
+De ingebouwde database `FOODS` (±125 items, per 100 g: naam, kcal, p, c, f, portion, unit, suiker, vezels, verzadigd vet, zout, cafeïne mg; cafeïne mag ontbreken = 0) staat bovenaan het script en wordt omgezet naar `DB`. Waarden zijn gemiddelden uit eigen kennis, niet uit een officiële bron.
 
 ## Opslag
 
 - **Altijd:** `localStorage`, sleutel `voedingstracker-v1`, de hele `S` als JSON.
-- **Weergave (per apparaat):** `localStorage`, sleutel `voedingstracker-ui`, object `UI` = `{theme: 'auto'|'light'|'dark', open: {maaltijd: true}}`. `applyTheme()` zet `data-theme` en `<meta name="theme-color">`. Keuze onder Doelen → Weergave. Hoort niet in `S`/`db`.
-- **Open Food Facts-cache:** `localStorage`, sleutel `voedingstracker-off`, `{barcode: {t, item}}`, 30 dagen geldig, max. 300 items. Alleen gevonden producten worden bewaard.
-- **Open Food Facts-zoekcache:** `localStorage`, sleutel `voedingstracker-offq`, `{zoekterm: {t, items}}`, 7 dagen geldig, max. 50 zoektermen. Ook lege resultaten worden bewaard. De nieuwere zoek-API (search.openfoodfacts.org) stuurt geen CORS-header en werkt dus niet vanuit de browser.
+- **Weergave (per apparaat):** `localStorage`, sleutel `voedingstracker-ui`, object `UI` = `{theme: 'auto'|'light'|'dark', open: {maaltijd: true}}`. `applyTheme()` zet `data-theme` en `<meta name="theme-color">`. Keuze onder Instellingen → Weergave. Hoort niet in `S`/`db`.
+- **Open Food Facts-cache:** `localStorage`, sleutel `voedingstracker-off2` ("2" sinds de extra stoffen; de oude sleutels worden bij het starten gewist), `{barcode: {t, item}}`, 30 dagen geldig, max. 300 items. Alleen gevonden producten worden bewaard.
+- **Open Food Facts-zoekcache:** `localStorage`, sleutel `voedingstracker-offq2`, `{zoekterm: {t, items}}`, 7 dagen geldig, max. 50 zoektermen. Ook lege resultaten worden bewaard. De nieuwere zoek-API (search.openfoodfacts.org) stuurt geen CORS-header en werkt dus niet vanuit de browser.
 - **Als `window.claude` beschikbaar is** (alleen in claude.ai): `db` + `user`. Pad `data/users/<uid>/` is privé per gebruiker. Daaronder:
   - doc `meta` met `{json}`: goals, weights, products, meals, water, profile
   - doc `m-YYYY-MM` met `{json}`: alle dagen van die maand
@@ -137,7 +143,7 @@ Nog niet getest:
 3. Export/import als CSV/JSON (in een Artifact via de `downloads` capability).
 4. ~~Vaste maaltijden~~ **Klaar** (bewaren onder een maaltijd op Vandaag, beheren onder Doelen).
 5. ~~Route B: Open Food Facts~~ **Klaar:** barcode én zoeken op naam.
-6. Vitaminen/vezels/suiker indien de gebruiker dat wil.
+6. ~~Vezels/suiker~~ **Klaar** (Instellingen → Bijhouden: suiker, vezels, verzadigd vet, zout, cafeïne). Vitaminen bewust niet: staan zelden op verpakkingen of in Open Food Facts (keuze gebruiker 2026-10-02).
 
 ## Werkafspraken
 
