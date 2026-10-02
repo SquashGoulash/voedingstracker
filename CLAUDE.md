@@ -23,6 +23,7 @@ Dit bepaalt wat er kan. **Gekozen op 2026-10-01: route B (zelf hosten).** Route 
 
 ```
 voedingstracker.html   De hele app (CSS in <style>, JS in één IIFE in <script>)
+index.html             Alleen een doorverwijzing naar voedingstracker.html (voor GitHub Pages)
 CLAUDE.md              Dit bestand
 ```
 
