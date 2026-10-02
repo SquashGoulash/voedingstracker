@@ -112,13 +112,13 @@ De ingebouwde database `FOODS` (±120 items, per 100 g, met `portion` en `unit`)
 
 ## Wat nog niet getest is
 
-De app is gebouwd zonder te kunnen draaien in een browser. Test dit eerst:
+Door de gebruiker getest en werkend (2026-10-02): barcodescanner (camera + `html5-qrcode`) en lichte/donkere modus.
 
-1. **Camera/barcodescan.** Gebruikt `html5-qrcode@2.3.8` van cdnjs (URL in `loadScanLib`, niet geverifieerd). Controleer of het script laadt, of de camera start en of EAN-13 wordt herkend. Alternatief: eigen scanner met `BarcodeDetector` (niet in alle browsers, o.a. niet in Safari).
-2. **`sample` (AI) in claude.ai.** Zoeken, etiketfoto en ideeën. Controleer de JSON-parsing en foutafhandeling.
-3. **`db`-opslag.** Laden, wegschrijven, en de overgang van localStorage naar db.
-4. **Donkere modus** en kleine schermen (320 px).
-5. Randgevallen: dag zonder entries, kcal over doel, één gewichtsmeting, 365+ dagen data.
+Nog niet getest:
+
+1. Kleine schermen (320 px).
+2. Randgevallen: dag zonder entries, kcal over doel, één gewichtsmeting, 365+ dagen data.
+3. Alleen relevant voor route A (claude.ai): `sample` (AI zoeken, etiketfoto, ideeën) en `db`-opslag inclusief de overgang van localStorage naar db.
 
 ## Bekende beperkingen
 
