@@ -49,7 +49,7 @@ Belangrijkste functies:
 | Onderdeel | Functies |
 |---|---|
 | Tabbladen | `renderTabs`, `renderToday`, `renderWeight`, `renderTips`, `renderGoals` |
-| Vandaag | `ringSVG`, `macroCard`, `streak`, `avg7`, `sparkline`, `heroMsg`, `copyFromPrev('all'|maaltijd)` (kopieert van de dag vóór `date`; knoppen `data-copy` alleen bij een lege dag/maaltijd) |
+| Vandaag | `renderToday` (datumbalk, samenvattingskaart met `ringSVG` + `macroCard`/`thinBar`, inklapbare maaltijden), `mealOpen` (welke maaltijden open zijn; `addEntry` klapt de maaltijd open, `data-toggle` klapt in/uit), `copyFromPrev('all'|maaltijd)` (kopieert van de dag vóór `date`; links `data-copy` alleen bij een lege dag/maaltijd) |
 | Week | `renderWeek`, `weekChart` (inline SVG, staven + doellijn, tik = `selDay`), `weekDays`, `weekAvg` (gelogde dagen vóór vandaag; vandaag alleen als er verder niets is), `mondayOf`, `isoWeek` |
 | Vaste maaltijden | `mealItem` (entry → onderdeel zonder id/meal), `mealHTML` (sheet-modus `meal`, `sh.draft`), `checkedItems`, `mealsCard` (Doelen). Toevoegen: `data-usemeal` in de zoek-sheet |
 | Invoer-sheet | `openSheet(meal, entry, prod)`, `renderSheet`, `buildResults`, `searchLocal`, `portionHTML` (ook voor bewerken), `updatePortion`, `manualHTML`, `productHTML`, `saveProduct` |
@@ -101,7 +101,8 @@ De ingebouwde database `FOODS` (±120 items, per 100 g, met `portion` en `unit`)
 ## Ontwerp
 
 - Mobile-first, max. breedte 520 px. Eén lettertype: Bricolage Grotesque (Google Fonts) met system-ui als fallback.
-- Kleuren via CSS-variabelen op `:root`, met licht/donker via `prefers-color-scheme` en `data-theme`. Macrokleuren: eiwit `--p` (blauw), koolhydraten `--c` (amber), vet `--f` (roze). Accent `--accent` (groen), hero-gradient `--hero1..3`.
+- Kleuren via CSS-variabelen op `:root`, met licht/donker via `prefers-color-scheme` en `data-theme`. Macrokleuren: eiwit `--p` (blauw), koolhydraten `--c` (amber), vet `--f` (roze). Accent `--accent` (groen).
+- Minimalistisch (gekozen 2026-10-02, mix van ontwerpen "Rustig" en "Compact"): geen emoji's, tegels, gekleurde balken of groene koppen; geen schaduwen (`--shadow:none`); paginakoppen zijn platte tekst. Vandaag = samenvattingskaart + maaltijdkaarten die standaard ingeklapt zijn. Voeg geen nieuwe tegels of decoratie toe zonder overleg.
 - Gebruik altijd de variabelen, geen vaste hex-kleuren in componenten (dark mode).
 - `viewport-fit=cover` en `env(safe-area-inset-*)` zijn nodig voor telefoons; laat die staan.
 - Teksten: Nederlands, zin-hoofdletters, actieve werkwoorden ("Opslaan", "Toevoegen"). Getallen via `nf()` (nl-NL formattering) en klasse `num` (tabular-nums).
