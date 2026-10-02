@@ -1,6 +1,6 @@
 # Voedingstracker
 
-Persoonlijke voedingstracker in het Nederlands. Houdt kcal en macro's (eiwit, koolhydraten, vet) per dag bij, met een gewichtsgrafiek, doelen, productzoeker, barcodescanner en tips over wat nog past in de resterende macro's.
+Persoonlijke voedingstracker in het Nederlands. Houdt kcal en macro's (eiwit, koolhydraten, vet) per dag bij, met een weekoverzicht, vaste maaltijden, een gewichtsgrafiek, doelen, productzoeker, barcodescanner en tips over wat nog past in de resterende macro's.
 
 De hele app is **één bestand**: `voedingstracker.html` (HTML + CSS + vanilla JS, geen build-stap, geen framework). Zo is hij oorspronkelijk gemaakt en gepubliceerd als claude.ai Artifact:
 https://claude.ai/artifact/E3crA6XWdYoLPynBfrL9Ci
@@ -33,7 +33,7 @@ Geen package.json, geen tests, geen build. Lokaal draaien: open het bestand in e
 Alles zit in één IIFE met `"use strict"`. Globale variabelen binnen de IIFE:
 
 - `S`: de volledige app-state (zie datamodel).
-- `tab` (`today|weight|tips|goals`), `date` (geselecteerde dag), `range`, `selW`, `tipFocus`, `tipSeed`, `aiIdeas`, `aiBusy`, `calc`.
+- `tab` (`today|week|weight|tips|goals`), `date` (geselecteerde dag), `week` (maandag van de getoonde week), `selDay` (aangetikte dag in de weekgrafiek), `range`, `selW`, `tipFocus`, `tipSeed`, `aiIdeas`, `aiBusy`, `calc`.
 - `sh`: toestand van de invoer-sheet (bottom sheet) of `null` als hij dicht is.
 - `sampleFn`, `sampleImages`, `dbCol`: capabilities, `null` als niet beschikbaar.
 
@@ -45,6 +45,8 @@ Belangrijkste functies:
 |---|---|
 | Tabbladen | `renderTabs`, `renderToday`, `renderWeight`, `renderTips`, `renderGoals` |
 | Vandaag | `ringSVG`, `macroCard`, `streak`, `avg7`, `sparkline`, `heroMsg` |
+| Week | `renderWeek`, `weekChart` (inline SVG, staven + doellijn, tik = `selDay`), `weekDays`, `weekAvg` (gelogde dagen vóór vandaag; vandaag alleen als er verder niets is), `mondayOf`, `isoWeek` |
+| Vaste maaltijden | `mealItem` (entry → onderdeel zonder id/meal), `mealHTML` (sheet-modus `meal`, `sh.draft`), `checkedItems`, `mealsCard` (Doelen). Toevoegen: `data-usemeal` in de zoek-sheet |
 | Invoer-sheet | `openSheet(meal, entry, prod)`, `renderSheet`, `buildResults`, `searchLocal`, `portionHTML` (ook voor bewerken), `updatePortion`, `manualHTML`, `productHTML`, `saveProduct` |
 | Entries | `addEntry`, `replaceEntry`, `entryFrom(item, g, meal)` (maakt een entry mét `g` en `base`; gebruik deze voor elke entry uit een product) |
 | Scanner | `loadScanLib`, `startScan`, `stopScan`, `scanFromFile`, `onCode` |
@@ -68,7 +70,9 @@ S = {
   weights:  [ { d: 'YYYY-MM-DD', kg } ],       // één meting per datum
   products: [ { id, name, kcal, p, c, f, portion, unit, barcode } ],
                                                // "Mijn producten", waarden PER 100 G
-  water:    { 'YYYY-MM-DD': aantalGlazen },
+  meals:    [ { id, name, items: [ {name, kcal, p, c, f, g?, base?} ] } ],
+                                               // vaste maaltijden; items als entries zonder id/meal
+  water:    { 'YYYY-MM-DD': aantalGlazen },   // geen UI meer (verwijderd 2026-10-02); data blijft bewaard
   profile:  { sex, age, h, w, act, goal }      // invoer van de doelcalculator
 }
 ```
@@ -83,7 +87,7 @@ De ingebouwde database `FOODS` (±120 items, per 100 g, met `portion` en `unit`)
 - **Open Food Facts-cache:** `localStorage`, sleutel `voedingstracker-off`, `{barcode: {t, item}}`, 30 dagen geldig, max. 300 items. Alleen gevonden producten worden bewaard.
 - **Open Food Facts-zoekcache:** `localStorage`, sleutel `voedingstracker-offq`, `{zoekterm: {t, items}}`, 7 dagen geldig, max. 50 zoektermen. Ook lege resultaten worden bewaard. De nieuwere zoek-API (search.openfoodfacts.org) stuurt geen CORS-header en werkt dus niet vanuit de browser.
 - **Als `window.claude` beschikbaar is** (alleen in claude.ai): `db` + `user`. Pad `data/users/<uid>/` is privé per gebruiker. Daaronder:
-  - doc `meta` met `{json}`: goals, weights, products, water, profile
+  - doc `meta` met `{json}`: goals, weights, products, meals, water, profile
   - doc `m-YYYY-MM` met `{json}`: alle dagen van die maand
   
   Opgesplitst per maand omdat een document maximaal 256 KiB mag zijn. Schrijven gebeurt gedebounced en serieel in `flush()`. Bij de eerste keer (lege db) wordt lokale data overgezet.
@@ -113,15 +117,16 @@ De app is gebouwd zonder te kunnen draaien in een browser. Test dit eerst:
 - De maaltijd van een entry kun je niet wijzigen (alleen verwijderen en opnieuw toevoegen).
 - Barcode: eerst eigen producten, dan Open Food Facts. Zoeken op naam in Open Food Facts gaat via een knop (limiet ±10 zoekopdrachten per minuut; de server geeft vaak 503).
 - Waarden uit AI-zoeken en etiketlezen zijn schattingen; de UI markeert dit ("Schatting").
-- Geen export/import, geen weekoverzicht, geen meerdere profielen.
+- Een vaste maaltijd voeg je in zijn geheel toe; losse onderdelen pas je daarna per entry aan.
+- Geen export/import, geen meerdere profielen.
 - Alleen Nederlands.
 
 ## Roadmap (voorstellen)
 
 1. ~~Producten beheren en entries met gram~~ **Klaar** (Doelen → Mijn producten; entries met `g` + `base`).
-2. Weekoverzicht: gemiddelde kcal en macro's, grafiek per dag.
+2. ~~Weekoverzicht~~ **Klaar** (tabblad Week).
 3. Export/import als CSV/JSON (in een Artifact via de `downloads` capability).
-4. Favorieten en maaltijden combineren (bijv. "mijn standaard ontbijt").
+4. ~~Vaste maaltijden~~ **Klaar** (bewaren onder een maaltijd op Vandaag, beheren onder Doelen).
 5. ~~Route B: Open Food Facts~~ **Klaar:** barcode én zoeken op naam.
 6. Vitaminen/vezels/suiker indien de gebruiker dat wil.
 
