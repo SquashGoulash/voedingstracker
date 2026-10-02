@@ -515,7 +515,7 @@ function scanHTML(){
   var h='';
   if(sh.code){
     if(sh.lookup)return '<div class="notice"><b class="num">'+esc(sh.code)+'</b><br>Zoeken in Open Food Facts…</div>';
-    h+='<div class="notice"><b class="num">'+esc(sh.code)+'</b><br>'+(sh.offErr?'Open Food Facts is nu niet bereikbaar (geen internet?).':'Deze barcode staat niet in je eigen producten en niet in Open Food Facts.')+' Vul de gegevens één keer in, dan herkent de app hem voortaan direct.</div>';
+    h+='<div class="notice"><b class="num">'+esc(sh.code)+'</b><br>'+(sh.offErr?esc(sh.offErr):'Deze barcode staat niet in je eigen producten en niet in Open Food Facts.')+' Vul de gegevens één keer in, dan herkent de app hem voortaan direct.</div>';
     if(sampleFn&&sampleImages)h+='<label class="secondary" style="display:flex;align-items:center;justify-content:center;margin-bottom:10px">'+(sh.labelBusy?'Claude leest het etiket…':'📷 Laat AI het etiket lezen')+'<input type="file" accept="image/*" capture="environment" id="labelFile" hidden'+(sh.labelBusy?' disabled':'')+'></label>';
     h+='<button class="primary" data-act="manualcode">Zelf invullen</button><div class="or"><a href="#" data-act="rescan" style="color:var(--accent);font-weight:700">Andere barcode scannen</a></div>';
     if(sh.msg)h+='<div class="hint warn">'+esc(sh.msg)+'</div>';
@@ -638,7 +638,7 @@ async function onCode(code){
   var mine=sh;
   sh.code=code;sh.msg='';sh.offErr=false;sh.lookup=true;renderSheet();
   var off=null;
-  try{off=await offLookup(code)}catch(e){mine.offErr=true}
+  try{off=await offLookup(code)}catch(e){mine.offErr=offErrMsg(e)}
   mine.lookup=false;
   if(sh!==mine||sh.mode!=='scan'||sh.code!==code)return; // gebruiker is intussen ergens anders heen gegaan
   if(off){sh.item=off;sh.mode='portion';toast('Gevonden in Open Food Facts');}
@@ -666,19 +666,34 @@ function offToItem(code,pr){
     p:r1(num(n.proteins_100g)),c:r1(num(n.carbohydrates_100g)),f:r1(num(n.fat_100g)),
     portion:serving>0&&serving<2000?Math.round(serving):100,unit:'portie'};
 }
+// Open Food Facts geeft bij drukte 503 ZONDER CORS-header. De browser ziet dan een netwerkfout (TypeError)
+// in plaats van status 503. Daarom ook bij een netwerkfout opnieuw proberen, behalve als we echt offline zijn.
+async function offFetch(url,ms){
+  var ctl=new AbortController(),timer=setTimeout(function(){ctl.abort()},ms),r=null,err=null;
+  try{
+    for(var a=0;a<3;a++){
+      if(a)await new Promise(function(ok){setTimeout(ok,1500*a)});
+      try{r=await fetch(url,{signal:ctl.signal});err=null;if(r.status!==503&&r.status!==429)break}
+      catch(e){if(e.name==="AbortError")throw e;err=e;r=null;if(navigator.onLine===false)break}
+    }
+    if(err)throw err;
+    if(r.status===404)return null;
+    if(!r.ok)throw new Error("off "+r.status);
+    return await r.json();
+  }finally{clearTimeout(timer)}
+}
+function offErrMsg(e){
+  if(navigator.onLine===false)return "Je bent offline. Controleer je internetverbinding.";
+  if(e&&e.name==="AbortError")return "Open Food Facts reageert niet. Probeer het straks opnieuw.";
+  return "Open Food Facts is even druk. Probeer het over een minuut opnieuw.";
+}
 async function offLookup(code){
   var hit=offCache()[code];
   if(hit&&Date.now()-hit.t<OFFTTL&&hit.item)return hit.item;
-  var ctl=new AbortController(),timer=setTimeout(function(){ctl.abort()},8000);
-  try{
-    var r=await fetch('https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(code)+'.json?fields=product_name,product_name_nl,brands,serving_quantity,nutriments',{signal:ctl.signal});
-    if(r.status===404)return null; // barcode onbekend
-    if(!r.ok)throw new Error('off '+r.status);
-    var j=await r.json();
-    var item=j&&j.status===1?offToItem(code,j.product):null;
-    if(item)offStore(code,item);
-    return item;
-  }finally{clearTimeout(timer)}
+  var j=await offFetch('https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(code)+'.json?fields=product_name,product_name_nl,brands,serving_quantity,nutriments',12000); // null = barcode onbekend (404)
+  var item=j&&j.status===1?offToItem(code,j.product):null;
+  if(item)offStore(code,item);
+  return item;
 }
 // Zoeken op naam. De zoek-API is traag en heeft een limiet (±10 per minuut), dus alleen op verzoek en met cache.
 var OFFQKEY='voedingstracker-offq',OFFQTTL=7*864e5; // cache 7 dagen
@@ -691,22 +706,16 @@ function offQStore(q,items){
 async function offSearchFetch(q){
   var key=norm(q).replace(/\s+/g,' ').trim(),hit=offQCache()[key];
   if(hit&&Date.now()-hit.t<OFFQTTL)return hit.items;
-  var ctl=new AbortController(),timer=setTimeout(function(){ctl.abort()},10000);
-  try{
-    var url='https://world.openfoodfacts.org/cgi/search.pl?search_terms='+encodeURIComponent(q)+'&search_simple=1&json=1&page_size=24&sort_by=unique_scans_n&tagtype_0=countries&tag_contains_0=contains&tag_0=netherlands&fields=code,product_name,product_name_nl,brands,serving_quantity,nutriments';
-    var r=await fetch(url,{signal:ctl.signal});
-    if(r.status===503){await new Promise(function(ok){setTimeout(ok,1500)});r=await fetch(url,{signal:ctl.signal})} // server is vaak even druk: één keer opnieuw
-    if(!r.ok)throw new Error('off '+r.status);
-    var j=await r.json(),seen={},items=[];
-    (j.products||[]).forEach(function(pr){
-      var it=offToItem(String(pr.code||''),pr);if(!it)return;
-      var k=it.name.toLowerCase()+'|'+it.kcal;if(seen[k])return; // dubbele producten overslaan
-      seen[k]=1;items.push(it);
-    });
-    items=items.slice(0,12);
-    offQStore(key,items);
-    return items;
-  }finally{clearTimeout(timer)}
+  var url='https://world.openfoodfacts.org/cgi/search.pl?search_terms='+encodeURIComponent(q)+'&search_simple=1&json=1&page_size=24&sort_by=unique_scans_n&tagtype_0=countries&tag_contains_0=contains&tag_0=netherlands&fields=code,product_name,product_name_nl,brands,serving_quantity,nutriments';
+  var j=(await offFetch(url,15000))||{},seen={},items=[];
+  (j.products||[]).forEach(function(pr){
+    var it=offToItem(String(pr.code||''),pr);if(!it)return;
+    var k=it.name.toLowerCase()+'|'+it.kcal;if(seen[k])return; // dubbele producten overslaan
+    seen[k]=1;items.push(it);
+  });
+  items=items.slice(0,12);
+  offQStore(key,items);
+  return items;
 }
 async function offSearch(){
   var q=sh&&sh.q.trim();if(!q||sh.offBusy)return;
@@ -714,7 +723,7 @@ async function offSearch(){
   var mine=sh;
   sh.offBusy=true;sh.offErr='';sh.offQ=q;sh.off=[];renderResultsOnly();
   try{mine.off=await offSearchFetch(q)}
-  catch(e){mine.offErr=e&&e.name==='AbortError'?'Open Food Facts reageert niet. Probeer het straks opnieuw.':e&&/off (429|503)/.test(e.message)?'Open Food Facts is even druk. Probeer het over een minuut opnieuw.':'Open Food Facts is nu niet bereikbaar (geen internet?).'}
+  catch(e){mine.offErr=offErrMsg(e)}
   mine.offBusy=false;
   if(sh===mine)renderResultsOnly();
 }

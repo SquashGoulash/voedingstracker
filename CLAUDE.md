@@ -19,6 +19,10 @@ Dit bepaalt wat er kan. **Gekozen op 2026-10-01: route B (zelf hosten).** Route 
 - `db`, `user` en `sample` bestaan dan niet. Je moet zelf opslag kiezen (localStorage, of een backend/Supabase/Firebase) en eventueel AI via een eigen backend. Zet nooit een API-sleutel in de frontend.
 - Camera (`getUserMedia`) vereist HTTPS, behalve op `localhost`.
 
+## Online
+
+Gehost op GitHub Pages: https://squashgoulash.github.io/voedingstracker/ (repo `SquashGoulash/voedingstracker`, publiek, branch `main`, map `/`). Elke `git push` naar `main` zet de nieuwe versie binnen ±1 minuut online. Commits gebruiken het noreply-adres van GitHub (lokaal ingesteld in `git config user.email`); zet nooit een privé e-mailadres in commits of bestanden. Gegevens staan per apparaat in localStorage, dus laptop en telefoon synchroniseren niet.
+
 ## Bestanden
 
 ```
@@ -51,7 +55,7 @@ Belangrijkste functies:
 | Invoer-sheet | `openSheet(meal, entry, prod)`, `renderSheet`, `buildResults`, `searchLocal`, `portionHTML` (ook voor bewerken), `updatePortion`, `manualHTML`, `productHTML`, `saveProduct` |
 | Entries | `addEntry`, `replaceEntry`, `entryFrom(item, g, meal)` (maakt een entry mét `g` en `base`; gebruik deze voor elke entry uit een product) |
 | Scanner | `loadScanLib`, `startScan`, `stopScan`, `scanFromFile`, `onCode` |
-| Open Food Facts | Barcode: `offLookup` (8 s timeout), `offCache`, `offStore`. Op naam: `offSearch` (knop of Enter in zoekveld), `offSearchFetch` (`cgi/search.pl`, filter Nederland, sortering op populariteit, 1× opnieuw bij 503), `offQCache`, `offQStore`. Gedeeld: `offToItem` (OFF-product → item met `src:'off'`) |
+| Open Food Facts | Barcode: `offLookup`, `offCache`, `offStore`. Op naam: `offSearch` (knop of Enter in zoekveld), `offSearchFetch` (`cgi/search.pl`, filter Nederland, sortering op populariteit), `offQCache`, `offQStore`. Gedeeld: `offFetch` (max. 3 pogingen, ook bij netwerkfout: een 503 van OFF heeft geen CORS-header en komt in de browser binnen als TypeError, niet als status 503), `offErrMsg`, `offToItem` (OFF-product → item met `src:'off'`) |
 | AI | `aiSearch` (zoeken), `readLabel` (etiketfoto), `askIdeas` (tips) |
 | Gewicht | `weightChart` (inline SVG), `weightPick`, `readoutFor` |
 | Tips | `remaining`, `suggestions`, `tipList`, `doCalc`, `showCalc` |
