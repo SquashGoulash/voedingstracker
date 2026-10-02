@@ -58,7 +58,8 @@ Belangrijkste functies:
 | Entries | `addEntry`, `replaceEntry`, `entryFrom(item, g, meal)` (maakt een entry mét `g` en `base`; gebruik deze voor elke entry uit een product) |
 | Scanner | `loadScanLib`, `startScan`, `stopScan`, `scanFromFile`, `onCode` |
 | Open Food Facts | Barcode: `offLookup`, `offCache`, `offStore`. Op naam: `offSearch` (knop of Enter in zoekveld), `offSearchFetch` (`cgi/search.pl`, filter Nederland, sortering op populariteit), `offQCache`, `offQStore`. Gedeeld: `offFetch` (max. 3 pogingen, ook bij netwerkfout: een 503 van OFF heeft geen CORS-header en komt in de browser binnen als TypeError, niet als status 503), `offErrMsg`, `offToItem` (OFF-product → item met `src:'off'`) |
-| AI | `aiSearch` (zoeken), `readLabel` (etiketfoto), `askIdeas` (tips) |
+| AI (alleen claude.ai) | `aiSearch` (zoeken), `readLabel` (etiketfoto), `askIdeas` (tips) |
+| Foto van je bord | Sheet-modus `photo` (4e knop "Foto"). Gratis zonder API: `PHOTO_PROMPT` wordt gekopieerd, de gebruiker stelt de vraag met foto in de Claude- of ChatGPT-app en plakt het JSON-antwoord terug. `parsePhoto` (verdraagt tekst/codeblok/slimme aanhalingstekens; waarden per 100 g + `g`), `photoHTML`, `updPhoto`, `readPhoto`, `photoRows`. Items krijgen `src:'ai'` en worden via `entryFrom` toegevoegd. State in `sh.pText`, `sh.pItems`, `sh.pErr`, `sh.pShow` |
 | Gewicht | `weightChart` (inline SVG), `weightPick`, `readoutFor` |
 | Tips | `remaining`, `suggestions`, `tipList`, `doCalc`, `showCalc` |
 | Doelen | `renderGoals`, `productsCard` (Mijn producten: tik = bewerken in de sheet, modus `product`) |
@@ -131,7 +132,8 @@ Nog niet getest:
 - Oude en handmatige entries hebben geen `g`/`base` en zijn alleen op totalen te bewerken; "Eerder gegeten" opent bij die entries het handmatige formulier.
 - De maaltijd van een entry kun je niet wijzigen (alleen verwijderen en opnieuw toevoegen).
 - Barcode: eerst eigen producten, dan Open Food Facts. Zoeken op naam in Open Food Facts gaat via een knop (limiet ±10 zoekopdrachten per minuut; de server geeft vaak 503).
-- Waarden uit AI-zoeken en etiketlezen zijn schattingen; de UI markeert dit ("Schatting").
+- Waarden uit AI-zoeken, etiketlezen en Foto zijn schattingen; de UI markeert dit ("Schatting").
+- Foto werkt via kopiëren/plakken met een chat-app, niet automatisch: een eigen AI-koppeling kost geld (API-sleutel) en de gratis Gemini-API mag niet gebruikt worden in de EER. Gebruiker wil geen extra kosten (2026-10-02).
 - Een vaste maaltijd voeg je in zijn geheel toe; losse onderdelen pas je daarna per entry aan.
 - Geen export/import, geen meerdere profielen.
 - Alleen Nederlands.

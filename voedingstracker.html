@@ -36,7 +36,7 @@ html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
 *,*::before,*::after{box-sizing:inherit}
 body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);
   font-family:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.4;-webkit-tap-highlight-color:transparent}
-button,input,select{font:inherit;color:inherit}
+button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .num{font-variant-numeric:tabular-nums}
@@ -164,6 +164,16 @@ nav.tabs button[aria-current="page"]{color:var(--accent)}
 .xbtn{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--bg);font-size:18px;line-height:1}
 .seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--bg);border-radius:14px;padding:4px;margin-bottom:14px}
 .seg button{border:0;background:none;border-radius:11px;height:38px;font-weight:700;font-size:14px;color:var(--muted)}
+.seg.four{grid-template-columns:repeat(4,1fr)}
+.seg.four button{font-size:13.5px}
+.paste{display:block;width:100%;min-height:96px;border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:10px 12px;font-size:16px;resize:vertical;margin-bottom:10px}
+.step{font-size:13px;font-weight:700;color:var(--muted);margin:16px 0 6px}
+.step:first-child{margin-top:0}
+.pitem{display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);padding:8px 0}
+.pitem .check{margin:0;flex:1;min-width:0;align-items:flex-start}
+.pitem .check input{margin-top:2px;flex:none}
+.pitem .n{font-weight:600;overflow-wrap:anywhere}
+.pitem .m{font-size:12.5px;color:var(--muted)}
 .seg button[aria-pressed="true"]{background:var(--surface);color:var(--accent);box-shadow:0 1px 4px rgba(0,0,0,.12)}
 .searchbox{position:relative;margin-bottom:10px}
 .searchbox input{width:100%;height:50px;border:1px solid var(--line);border-radius:16px;background:var(--bg);padding:0 14px;font-size:16px}
@@ -487,8 +497,8 @@ function renderSheet(){
   var m=sh.mode,title=m==='meal'?(sh.draft.id?'Maaltijd bewerken':'Vaste maaltijd bewaren'):m==='product'?'Product bewerken':sh.entry?'Eten aanpassen':m==='portion'?'Hoeveelheid':'Eten toevoegen';
   var mealName=(MEALS.filter(function(x){return x[0]===sh.meal})[0]||[])[1]||'';
   var h='<div class="backdrop" id="bd"><div class="sheet" role="dialog" aria-modal="true" aria-label="'+title+'"><div class="sheethead"><h2>'+title+(mealName&&!sh.entry?' <small style="font-weight:400;color:var(--muted);font-size:14px">· '+mealName+'</small>':'')+'</h2><button class="xbtn" data-act="closesheet" aria-label="Sluiten">✕</button></div>';
-  if(m==='search'||m==='scan'||m==='manual'){
-    h+='<div class="seg">'+[['search','Zoeken'],['scan','Scannen'],['manual','Handmatig']].map(function(s){return '<button data-mode="'+s[0]+'" aria-pressed="'+(m===s[0])+'">'+s[1]+'</button>'}).join('')+'</div>';
+  if(m==='search'||m==='scan'||m==='manual'||m==='photo'){
+    h+='<div class="seg four">'+[['search','Zoeken'],['scan','Scannen'],['photo','Foto'],['manual','Handmatig']].map(function(s){return '<button data-mode="'+s[0]+'" aria-pressed="'+(m===s[0])+'">'+s[1]+'</button>'}).join('')+'</div>';
   }
   if(m==='search'){
     h+='<div class="searchbox"><input id="q" type="search" placeholder="Zoek bijv. havermout, kwark, kip…" value="'+esc(sh.q)+'" autocomplete="off"></div><div id="results">'+buildResults()+'</div>';
@@ -500,12 +510,15 @@ function renderSheet(){
     h+=productHTML();
   }else if(m==='meal'){
     h+=mealHTML();
+  }else if(m==='photo'){
+    h+=photoHTML();
   }else{
     h+=manualHTML();
   }
   h+='</div></div>';
   root.innerHTML=h;
   if(m==='portion')updatePortion();
+  if(m==='photo'&&sh.pItems)updPhoto();
 }
 function scanHTML(){
   var h='';
@@ -593,6 +606,65 @@ function manualHTML(){
   }
   h+='<div class="actions"><button class="primary" data-act="savemanual">Opslaan</button>'+(e?'<button class="ghost" data-act="delentry">Verwijder</button>':'')+'</div>';
   return h;
+}
+/* ---------- foto van je bord (via de Claude- of ChatGPT-app; de app praat zelf niet met AI) ---------- */
+var PHOTO_PROMPT='Schat wat er op deze foto van mijn maaltijd ligt. Splits het in losse onderdelen (bijv. rijst, kip, saus, groente). '+
+  'Zet verborgen dingen die er waarschijnlijk in zitten, zoals bakolie, boter of room, er als apart onderdeel bij. Weet je iets niet zeker, geef dan je beste schatting.\n'+
+  'Geef per onderdeel de geschatte hoeveelheid in gram (g) en de voedingswaarden per 100 g: kcal, eiwit (p), koolhydraten (c), vet (f), suiker (sug), vezels (fib), verzadigd vet (sat) en zout (salt), allemaal in gram, en cafeïne (caf) in mg. Gebruik Nederlandse namen.\n'+
+  'Antwoord met alleen deze JSON in een codeblok, zonder uitleg:\n'+
+  '{"items":[{"name":"Witte rijst, gekookt","g":150,"kcal":130,"p":2.7,"c":28,"f":0.3,"sug":0.1,"fib":0.4,"sat":0.1,"salt":0,"caf":0}]}';
+// Leest het geplakte antwoord. Verdraagt tekst eromheen, codeblok-tekens en "slimme" aanhalingstekens.
+function parsePhoto(text){
+  var s=String(text||'').replace(/[“”„‟″]/g,'"').replace(/[‘’]/g,"'");
+  var i1=s.indexOf('['),i2=s.indexOf('{');
+  var st=i1>-1&&(i2<0||i1<i2)?i1:i2;if(st<0)return null;
+  var en=s.charAt(st)==='['?s.lastIndexOf(']'):s.lastIndexOf('}');if(en<=st)return null;
+  var o;try{o=JSON.parse(s.slice(st,en+1))}catch(e){return null}
+  var arr=Array.isArray(o)?o:o&&Array.isArray(o.items)?o.items:o&&o.name?[o]:[];
+  var opt=function(v){var x=parseFloat(v);return isFinite(x)&&x>=0?x:null};
+  return arr.filter(function(x){return x&&x.name&&opt(x.kcal)!=null}).slice(0,15).map(function(x){
+    var g=Math.round(opt(x.g)||100);g=Math.min(Math.max(g,1),3000);
+    var it={src:'ai',name:String(x.name).trim().slice(0,60),kcal:Math.min(Math.round(opt(x.kcal)),900),p:r1(opt(x.p)||0),c:r1(opt(x.c)||0),f:r1(opt(x.f)||0),portion:g,unit:'portie',g:g};
+    return copyX(it,{sug:opt(x.sug),fib:opt(x.fib),sat:opt(x.sat),salt:opt(x.salt),caf:opt(x.caf)},function(v,k){return rx(k,v)});
+  });
+}
+function photoHTML(){
+  var meal=((MEALS.filter(function(x){return x[0]===sh.meal})[0]||['','maaltijd'])[1]).toLowerCase();
+  if(sh.pItems){
+    return '<div class="step">Controleer de schatting</div>'+
+      sh.pItems.map(function(it,i){return '<div class="pitem"><label class="check"><input type="checkbox" data-pc="'+i+'" checked><span><span class="n">'+esc(it.name)+'</span><br><span class="m num" id="pm'+i+'"></span></span></label>'+
+        '<span class="tgoal"><input data-pg="'+i+'" type="text" inputmode="decimal" value="'+it.g+'" aria-label="Gram '+esc(it.name)+'"> g</span></div>'}).join('')+
+      '<div class="result" style="margin-top:12px"><b class="num" id="ptk">0</b><span>kcal in totaal</span><div class="num" id="ptm" style="margin-top:6px;font-size:14px"></div><div class="num" id="ptx" style="margin-top:4px;font-size:13px;color:var(--muted)"></div></div>'+
+      '<div class="hint">Dit is een schatting van de AI; vooral olie, boter en saus zijn moeilijk te zien. Pas de grammen aan als je het beter weet, of vink onderdelen uit.</div>'+
+      '<button class="primary" data-act="photoadd">Toevoegen aan '+esc(meal)+'</button>'+
+      '<div class="or"><a href="#" data-act="photoreset" style="color:var(--accent);font-weight:700">Ander antwoord plakken</a></div>';
+  }
+  return '<div class="step">1. Vraag kopiëren</div>'+
+    '<p class="hint" style="margin:0 0 10px">Kopieer de vraag, open de Claude-app (of ChatGPT), voeg een foto van je bord toe en plak de vraag erbij.</p>'+
+    '<button class="secondary" data-act="photocopy">Vraag kopiëren</button>'+
+    (sh.pShow?'<p class="hint" style="margin:10px 0 6px">Kopiëren lukte niet automatisch. Houd de tekst hieronder ingedrukt en kies Alles selecteren en Kopiëren.</p><textarea class="paste" readonly id="pPrompt">'+esc(PHOTO_PROMPT)+'</textarea>':'')+
+    '<div class="or"><a href="https://claude.ai/new" target="_blank" rel="noopener" style="color:var(--accent);font-weight:700">Claude openen</a> &nbsp;·&nbsp; <a href="https://chatgpt.com/" target="_blank" rel="noopener" style="color:var(--accent);font-weight:700">ChatGPT openen</a></div>'+
+    '<div class="step">2. Antwoord plakken</div>'+
+    '<p class="hint" style="margin:0 0 10px">Kopieer het hele antwoord (de code met { en }) en plak het hier.</p>'+
+    '<textarea class="paste" id="pText" placeholder="Plak hier het antwoord" autocomplete="off" spellcheck="false">'+esc(sh.pText||'')+'</textarea>'+
+    (sh.pErr?'<div class="hint warn">'+esc(sh.pErr)+'</div>':'')+
+    '<div class="actions"><button class="secondary" data-act="photopaste">Plakken</button><button class="primary" data-act="photoread">Lezen</button></div>';
+}
+function photoRows(){return sh.pItems.map(function(it,i){var el=document.querySelector('[data-pg="'+i+'"]'),c=document.querySelector('[data-pc="'+i+'"]');return {it:it,g:el?num(el.value):0,on:!!(c&&c.checked)}})}
+function updPhoto(){
+  var picked=[];
+  photoRows().forEach(function(r,i){
+    var s=scaleItem(r.it,r.g),m=$('#pm'+i);
+    if(m)m.textContent=nf(s.kcal)+' kcal · E '+nf(s.p,1)+' · K '+nf(s.c,1)+' · V '+nf(s.f,1);
+    if(r.on&&r.g>0)picked.push(s);
+  });
+  var t=sumOf(picked);
+  $('#ptk').textContent=nf(t.kcal);$('#ptm').innerHTML=macroLine(t);$('#ptx').textContent=extraLine(t);
+}
+function readPhoto(){
+  var items=parsePhoto(sh.pText);
+  if(!items||!items.length){sh.pErr=String(sh.pText||'').trim()?'Dit antwoord kan ik niet lezen. Kopieer het hele antwoord, inclusief de tekens { en }.':'Plak eerst het antwoord in het vak.';renderSheet();return}
+  sh.pItems=items;sh.pErr='';renderSheet();
 }
 function saveProduct(p){
   var i=S.products.findIndex(function(x){return (p.barcode&&x.barcode===p.barcode)||x.name.toLowerCase()===p.name.toLowerCase()});
@@ -808,6 +880,22 @@ document.addEventListener('click',async function(e){
     else{addEntry(date,data);toast('Toegevoegd')}
     closeSheet();render();
   }
+  else if(a==='photocopy'){
+    try{await navigator.clipboard.writeText(PHOTO_PROMPT);toast('Vraag gekopieerd. Open nu de Claude-app.')}
+    catch(err){sh.pShow=true;renderSheet()}
+  }
+  else if(a==='photopaste'){
+    try{var pt=await navigator.clipboard.readText();if(!sh||sh.mode!=='photo')return;sh.pText=pt;readPhoto()}
+    catch(err){toast('Houd het vak ingedrukt en kies Plakken');var pe=$('#pText');if(pe)pe.focus()}
+  }
+  else if(a==='photoread'){sh.pText=$('#pText').value;readPhoto()}
+  else if(a==='photoreset'){e.preventDefault();sh.pItems=null;sh.pText='';sh.pErr='';renderSheet()}
+  else if(a==='photoadd'){
+    var rows=photoRows().filter(function(r){return r.on&&r.g>0});
+    if(!rows.length){toast('Kies minstens één onderdeel');return}
+    rows.forEach(function(r){addEntry(date,entryFrom(r.it,r.g,sh.meal))});
+    toast(rows.length+(rows.length===1?' item':' items')+' toegevoegd');closeSheet();render();
+  }
   else if(a==='manualedit'){e.preventDefault();sh.mode='edit';renderSheet()}
   else if(a==='saveprod'){
     var nm=$('#pName').value.trim();if(!nm){$('#pName').focus();return}
@@ -861,6 +949,8 @@ document.addEventListener('input',function(e){
   if(!sh)return;
   if(e.target.id==='q'){sh.q=e.target.value;sh.ai=[];sh.aiErr='';renderResultsOnly()}
   else if(e.target.id==='grams')updatePortion();
+  else if(e.target.id==='pText')sh.pText=e.target.value;
+  else if(e.target.dataset.pg!=null)updPhoto();
 });
 document.addEventListener('keydown',function(e){
   if(sh&&e.key==='Enter'&&e.target.id==='q'){e.preventDefault();offSearch()}
@@ -869,6 +959,7 @@ document.addEventListener('change',function(e){
   if(!sh)return;
   var f=e.target.files&&e.target.files[0];
   if(e.target.dataset.mi!=null){var t=sumOf(checkedItems());$('#mk').textContent=nf(t.kcal);$('#mm').innerHTML=macroLine(t);return}
+  if(e.target.dataset.pc!=null){updPhoto();return}
   if(e.target.id==='barFile'&&f)scanFromFile(f);
   else if(e.target.id==='labelFile'&&f)readLabel(f);
 });
