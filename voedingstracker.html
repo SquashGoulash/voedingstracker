@@ -400,10 +400,14 @@ function renderToday(){
     '<div class="widget"><div class="wt"><span class="wi" style="background:rgba(227,160,43,.18)">🔥</span>Reeks</div><div class="wv num">'+streak()+'<small> dagen</small></div><div class="ws">Achter elkaar gelogd</div></div>'+
     '<button class="widget" data-tab-go="week"><div class="wt"><span class="wi" style="background:rgba(214,87,123,.16)">📊</span>Gemiddeld</div><div class="wv num">'+(avg7()?nf(avg7()):'–')+'<small> kcal</small></div><div class="ws">Laatste 7 dagen</div></button>'+
     '<button class="widget wide" data-tab-go="weight"><div class="wt"><span class="wi" style="background:var(--accent-soft)">⚖️</span>Gewicht</div><div class="wv num">'+(lw?nf(lw.kg,1)+'<small> kg</small>':'–')+'</div><div class="ws">'+(lw&&prev?((lw.kg-prev.kg>0?'+':'')+nf(lw.kg-prev.kg,1)+' kg sinds vorige'):(lw?'Eén meting':'Voeg je gewicht toe'))+'</div>'+sparkline()+'</button></div>';
+  var prevList=dayEntries(addDays(date,-1)),prevName=date===todayIso()?'gisteren':fmtD(addDays(date,-1),{weekday:'long'});
+  if(!list.length&&prevList.length)h+='<button class="secondary" data-copy="all" style="margin-top:14px">↻ Kopieer alles van '+esc(prevName)+' · '+nf(sumOf(prevList).kcal)+' kcal</button>';
   MEALS.forEach(function(m){
     var es=list.filter(function(e){return e.meal===m[0]}),mt=sumOf(es);
     h+='<section class="meal"><div class="mealband m-'+m[0]+'"><div class="l"><span class="ic">'+m[2]+'</span><div><h3>'+m[1]+'</h3><div class="k num">'+(es.length?nf(mt.kcal)+' kcal':'Nog leeg')+'</div></div></div><button class="addbtn" data-add="'+m[0]+'">+ Toevoegen</button></div><div class="entries">';
     if(!es.length)h+='<div class="empty">Zoek een product, scan een barcode of vul zelf in.</div>';
+    var pm=prevList.filter(function(e){return e.meal===m[0]});
+    if(!es.length&&pm.length)h+='<button class="mealfoot" data-copy="'+m[0]+'">↻ Kopieer van '+esc(prevName)+' · '+pm.length+(pm.length===1?' item':' items')+', '+nf(sumOf(pm).kcal)+' kcal</button>';
     es.forEach(function(e){
       h+='<button class="entry" data-edit="'+e.id+'"><div><div class="n">'+esc(e.name)+'</div><div class="m num"><b class="dp">E '+nf(e.p,1)+'</b> · <b class="dc">K '+nf(e.c,1)+'</b> · <b class="df">V '+nf(e.f,1)+'</b> g</div></div><div class="kc num">'+nf(e.kcal)+' <small>kcal</small></div></button>';
     });
@@ -421,6 +425,13 @@ function recentFoods(){
     for(var j=l.length-1;j>=0&&out.length<12;j--){var k=l[j].name.toLowerCase();if(seen[k])continue;seen[k]=1;out.push(l[j])}
   }
   return out;
+}
+// Eten van de vorige dag kopiëren naar de geselecteerde dag: 'all' of één maaltijd
+function copyFromPrev(which){
+  var src=dayEntries(addDays(date,-1)).filter(function(e){return which==='all'||e.meal===which});
+  if(!src.length)return;
+  src.forEach(function(e){var o=mealItem(e);o.meal=e.meal;addEntry(date,o)});
+  toast(src.length+(src.length===1?' item':' items')+' gekopieerd');render();
 }
 // Vaste maaltijd: kopie van entries zonder id/meal, met g+base als die er zijn
 function mealItem(e){var o={name:e.name,kcal:e.kcal,p:e.p,c:e.c,f:e.f};if(e.base&&e.g>0){o.g=e.g;o.base=Object.assign({},e.base)}return o}
@@ -1091,7 +1102,7 @@ function updGoalHint(){
 /* ---------- events (pagina) ---------- */
 document.addEventListener('click',function(e){
   if(sh)return;
-  var t=e.target.closest('[data-tab],[data-tab-go],[data-act],[data-add],[data-edit],[data-range],[data-wdel],[data-focus],[data-sugg],[data-preset],[data-prod],[data-savemeal],[data-mealid],[data-wday],[data-goday]');
+  var t=e.target.closest('[data-tab],[data-tab-go],[data-act],[data-add],[data-edit],[data-range],[data-wdel],[data-focus],[data-sugg],[data-preset],[data-prod],[data-savemeal],[data-mealid],[data-wday],[data-goday],[data-copy]');
   var svg=e.target.closest('#wsvg');
   if(svg){weightPick(e,svg);return}
   if(!t)return;
@@ -1100,6 +1111,7 @@ document.addEventListener('click',function(e){
   if(d.add){openSheet(d.add,null);return}
   if(d.edit){var en=dayEntries(date).find(function(x){return x.id===d.edit});if(en)openSheet(en.meal,en);return}
   if(d.prod){var pd=S.products.find(function(x){return x.id===d.prod});if(pd)openSheet(null,null,pd);return}
+  if(d.copy){copyFromPrev(d.copy);return}
   if(d.savemeal){var ml=MEALS.filter(function(m){return m[0]===d.savemeal})[0];
     openSheet(null,null,null,{id:null,name:'Mijn '+ml[1].toLowerCase(),items:dayEntries(date).filter(function(x){return x.meal===d.savemeal}).map(mealItem)});return}
   if(d.mealid){var sm=S.meals.find(function(x){return x.id===d.mealid});if(sm)openSheet(null,null,null,JSON.parse(JSON.stringify(sm)));return}

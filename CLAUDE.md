@@ -44,7 +44,7 @@ Belangrijkste functies:
 | Onderdeel | Functies |
 |---|---|
 | Tabbladen | `renderTabs`, `renderToday`, `renderWeight`, `renderTips`, `renderGoals` |
-| Vandaag | `ringSVG`, `macroCard`, `streak`, `avg7`, `sparkline`, `heroMsg` |
+| Vandaag | `ringSVG`, `macroCard`, `streak`, `avg7`, `sparkline`, `heroMsg`, `copyFromPrev('all'|maaltijd)` (kopieert van de dag vóór `date`; knoppen `data-copy` alleen bij een lege dag/maaltijd) |
 | Week | `renderWeek`, `weekChart` (inline SVG, staven + doellijn, tik = `selDay`), `weekDays`, `weekAvg` (gelogde dagen vóór vandaag; vandaag alleen als er verder niets is), `mondayOf`, `isoWeek` |
 | Vaste maaltijden | `mealItem` (entry → onderdeel zonder id/meal), `mealHTML` (sheet-modus `meal`, `sh.draft`), `checkedItems`, `mealsCard` (Doelen). Toevoegen: `data-usemeal` in de zoek-sheet |
 | Invoer-sheet | `openSheet(meal, entry, prod)`, `renderSheet`, `buildResults`, `searchLocal`, `portionHTML` (ook voor bewerken), `updatePortion`, `manualHTML`, `productHTML`, `saveProduct` |
