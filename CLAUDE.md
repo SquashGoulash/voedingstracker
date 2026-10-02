@@ -28,6 +28,8 @@ Gehost op GitHub Pages: https://squashgoulash.github.io/voedingstracker/ (repo `
 ```
 voedingstracker.html   De hele app (CSS in <style>, JS in één IIFE in <script>)
 index.html             Alleen een doorverwijzing naar voedingstracker.html (voor GitHub Pages)
+manifest.webmanifest   Maakt de app installeerbaar (beginscherm, zonder browserbalk); start_url = voedingstracker.html
+icon-192.png, icon-512.png, icon-maskable-512.png   App-iconen (ring in macrokleuren op #18181B)
 CLAUDE.md              Dit bestand
 ```
 
@@ -89,6 +91,7 @@ De ingebouwde database `FOODS` (±120 items, per 100 g, met `portion` en `unit`)
 ## Opslag
 
 - **Altijd:** `localStorage`, sleutel `voedingstracker-v1`, de hele `S` als JSON.
+- **Weergave (per apparaat):** `localStorage`, sleutel `voedingstracker-ui`, object `UI` = `{theme: 'auto'|'light'|'dark', open: {maaltijd: true}}`. `applyTheme()` zet `data-theme` en `<meta name="theme-color">`. Keuze onder Doelen → Weergave. Hoort niet in `S`/`db`.
 - **Open Food Facts-cache:** `localStorage`, sleutel `voedingstracker-off`, `{barcode: {t, item}}`, 30 dagen geldig, max. 300 items. Alleen gevonden producten worden bewaard.
 - **Open Food Facts-zoekcache:** `localStorage`, sleutel `voedingstracker-offq`, `{zoekterm: {t, items}}`, 7 dagen geldig, max. 50 zoektermen. Ook lege resultaten worden bewaard. De nieuwere zoek-API (search.openfoodfacts.org) stuurt geen CORS-header en werkt dus niet vanuit de browser.
 - **Als `window.claude` beschikbaar is** (alleen in claude.ai): `db` + `user`. Pad `data/users/<uid>/` is privé per gebruiker. Daaronder:
@@ -101,8 +104,8 @@ De ingebouwde database `FOODS` (±120 items, per 100 g, met `portion` en `unit`)
 ## Ontwerp
 
 - Mobile-first, max. breedte 520 px. Eén lettertype: Bricolage Grotesque (Google Fonts) met system-ui als fallback.
-- Kleuren via CSS-variabelen op `:root`, met licht/donker via `prefers-color-scheme` en `data-theme`. Macrokleuren: eiwit `--p` (blauw), koolhydraten `--c` (amber), vet `--f` (roze). Accent `--accent` (groen).
-- Minimalistisch (gekozen 2026-10-02, mix van ontwerpen "Rustig" en "Compact"): geen emoji's, tegels, gekleurde balken of groene koppen; geen schaduwen (`--shadow:none`); paginakoppen zijn platte tekst. Vandaag = samenvattingskaart + maaltijdkaarten die standaard ingeklapt zijn. Voeg geen nieuwe tegels of decoratie toe zonder overleg.
+- Kleuren via CSS-variabelen op `:root`, met licht/donker via `prefers-color-scheme` en `data-theme`. Macrokleuren: eiwit `--p` (blauw), koolhydraten `--c` (amber), vet `--f` (roze). Neutraal: licht = wit/grijs (`--bg #F4F4F5`), donker = antraciet (`--bg #0F0F11`); `--accent` is zwart (licht) of wit (donker), geen groen. Kaarten hebben een rand + subtiele `--shadow`.
+- Minimalistisch (gekozen 2026-10-02, mix van ontwerpen "Rustig" en "Compact"): geen emoji's, tegels, gekleurde balken of groene koppen; paginakoppen zijn platte tekst. Vandaag = samenvattingskaart + maaltijdkaarten die standaard ingeklapt zijn. Voeg geen nieuwe tegels of decoratie toe zonder overleg.
 - Gebruik altijd de variabelen, geen vaste hex-kleuren in componenten (dark mode).
 - `viewport-fit=cover` en `env(safe-area-inset-*)` zijn nodig voor telefoons; laat die staan.
 - Teksten: Nederlands, zin-hoofdletters, actieve werkwoorden ("Opslaan", "Toevoegen"). Getallen via `nf()` (nl-NL formattering) en klasse `num` (tabular-nums).

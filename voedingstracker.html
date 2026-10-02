@@ -4,29 +4,33 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Voedingstracker</title>
+<meta name="theme-color" content="#F4F4F5">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#F2F6F4; --surface:#FFFFFF; --ink:#14312B; --muted:#5F746C; --line:#DCE6E1;
-  --accent:#1F7A5C; --accent-ink:#FFFFFF; --accent-soft:rgba(31,122,92,.10);
+  --bg:#F4F4F5; --surface:#FFFFFF; --ink:#18181B; --muted:#66666E; --line:#DCDCE0;
+  --accent:#18181B; --accent-ink:#FFFFFF; --accent-soft:rgba(24,24,27,.06);
   --p:#3B6FD4; --c:#E3A02B; --f:#D6577B; --over:#C8402F;
-  --shadow:none;
+  --shadow:0 1px 2px rgba(0,0,0,.04),0 4px 14px rgba(0,0,0,.05);
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px);
   padding-bottom:env(safe-area-inset-bottom,0px);
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg:#0E1815; --surface:#162521; --ink:#E6F0EC; --muted:#93A89F; --line:#25372F;
-    --accent:#45B68F; --accent-ink:#0B1512; --accent-soft:rgba(69,182,143,.14);
-    --p:#6E97EE; --c:#F0B84F; --f:#EC7F9C; --over:#F0705F; --shadow:none;
+    --bg:#0F0F11; --surface:#1A1A1D; --ink:#F2F2F3; --muted:#9C9CA4; --line:#303035;
+    --accent:#F2F2F3; --accent-ink:#141416; --accent-soft:rgba(255,255,255,.08);
+    --p:#6E97EE; --c:#F0B84F; --f:#EC7F9C; --over:#F0705F; --shadow:0 1px 0 rgba(255,255,255,.03) inset,0 6px 18px rgba(0,0,0,.35);
   }
 }
 :root[data-theme="dark"]{
-  --bg:#0E1815; --surface:#162521; --ink:#E6F0EC; --muted:#93A89F; --line:#25372F;
-  --accent:#45B68F; --accent-ink:#0B1512; --accent-soft:rgba(69,182,143,.14);
-  --p:#6E97EE; --c:#F0B84F; --f:#EC7F9C; --over:#F0705F; --shadow:none;
+  --bg:#0F0F11; --surface:#1A1A1D; --ink:#F2F2F3; --muted:#9C9CA4; --line:#303035;
+  --accent:#F2F2F3; --accent-ink:#141416; --accent-soft:rgba(255,255,255,.08);
+  --p:#6E97EE; --c:#F0B84F; --f:#EC7F9C; --over:#F0705F; --shadow:0 1px 0 rgba(255,255,255,.03) inset,0 6px 18px rgba(0,0,0,.35);
 }
 html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
 *,*::before,*::after{box-sizing:inherit}
@@ -50,7 +54,7 @@ h1,h2,h3{margin:0;font-weight:800;letter-spacing:-.01em}
 .datelabel input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
 
 /* samenvatting */
-.sumcard{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:18px 16px}
+.sumcard{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:18px 16px;box-shadow:var(--shadow)}
 .ringwrap{position:relative;width:168px;height:168px;margin:0 auto}
 .ringwrap svg{width:100%;height:100%;transform:rotate(-90deg)}
 .ringwrap circle{stroke-width:10}
@@ -66,7 +70,7 @@ h1,h2,h3{margin:0;font-weight:800;letter-spacing:-.01em}
 .thinbar i{display:block;height:100%;border-radius:4px;transition:width .3s}
 
 /* maaltijden (inklapbaar) */
-.mealcard{background:var(--surface);border:1px solid var(--line);border-radius:16px;margin-top:8px;padding:2px 12px}
+.mealcard{background:var(--surface);border:1px solid var(--line);border-radius:16px;margin-top:10px;padding:2px 12px;box-shadow:var(--shadow)}
 .sumcard+.mealcard,.tlink+.mealcard{margin-top:12px}
 .mealhead{display:flex;align-items:center;gap:8px}
 .mealtoggle{flex:1;display:flex;align-items:center;gap:10px;background:none;border:0;padding:12px 0;text-align:left;min-width:0}
@@ -110,7 +114,7 @@ nav.tabs button[aria-current="page"]{color:var(--accent)}
 .secondary{width:100%;height:46px;border:1px solid var(--line);border-radius:14px;background:var(--surface);font-weight:700;color:var(--accent)}
 .ghost{height:44px;border:1px solid var(--line);border-radius:14px;background:none;font-weight:600;color:var(--over);padding:0 16px}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
-.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;box-shadow:var(--shadow)}
 .stat span{display:block;font-size:12px;color:var(--muted)}
 .stat b{font-size:20px;font-weight:800}
 .chips{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
@@ -145,7 +149,7 @@ nav.tabs button[aria-current="page"]{color:var(--accent)}
 .ideas{white-space:pre-wrap;font-size:15px;line-height:1.5;margin-top:10px}
 
 /* sheet */
-.backdrop{position:fixed;inset:0;background:rgba(8,18,15,.55);z-index:40;display:flex;align-items:flex-end;justify-content:center}
+.backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:40;display:flex;align-items:flex-end;justify-content:center}
 .sheet{background:var(--surface);width:100%;max-width:520px;border-radius:24px 24px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom,0px));height:88%;overflow-y:auto}
 .sheethead{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .sheethead h2{font-size:20px}
@@ -164,9 +168,9 @@ nav.tabs button[aria-current="page"]{color:var(--accent)}
 .tag.ai{background:rgba(214,87,123,.15);color:var(--f)}
 .recent{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px}
 .recent button{flex:none;border:1px solid var(--line);background:var(--bg);border-radius:16px;height:34px;padding:0 12px;font-size:13.5px;font-weight:600}
-.scanbox{border-radius:18px;overflow:hidden;background:#0B1512;min-height:190px;display:grid;place-items:center;margin-bottom:12px;position:relative}
+.scanbox{border-radius:18px;overflow:hidden;background:#111113;min-height:190px;display:grid;place-items:center;margin-bottom:12px;position:relative}
 #reader{width:100%}
-.scanmsg{color:#cfe3db;font-size:14px;padding:14px;text-align:center}
+.scanmsg{color:#DDDDE0;font-size:14px;padding:14px;text-align:center}
 .or{text-align:center;color:var(--muted);font-size:13px;margin:10px 0}
 .inline{display:flex;gap:8px}
 .inline input{flex:1;height:46px;border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:0 12px;font-size:16px}
@@ -232,6 +236,14 @@ var S={goals:{kcal:2200,p:150,c:250,f:70,kg:0},days:{},weights:[],products:[],me
 var tab='today', date=todayIso(), week=null, selDay=null, range=90, selW=null, tipFocus='all', tipSeed=0, aiIdeas='', aiBusy=false, calc=null;
 var sampleFn=null, sampleImages=false, sh=null;
 var LSKEY='voedingstracker-v1';
+var UIKEY='voedingstracker-ui'; // alleen weergave (thema, opengeklapte maaltijden); niet gesynchroniseerd
+var UI=(function(){try{return JSON.parse(localStorage.getItem(UIKEY))||{}}catch(e){return {}}})();UI.open=UI.open||{};UI.theme=UI.theme||'auto';
+function saveUI(){try{localStorage.setItem(UIKEY,JSON.stringify(UI))}catch(e){}}
+function applyTheme(){
+  var r=document.documentElement;if(UI.theme==='auto')r.removeAttribute('data-theme');else r.setAttribute('data-theme',UI.theme);
+  var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',getComputedStyle(r).getPropertyValue('--bg').trim()||'#F4F4F5');
+}
+try{window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',applyTheme)}catch(e){}
 function fixState(){
   S.goals=Object.assign({kcal:2200,p:150,c:250,f:70,kg:0},S.goals||{});
   S.days=S.days||{};S.weights=S.weights||[];S.products=S.products||[];S.meals=S.meals||[];S.water=S.water||{};S.profile=S.profile||{};
@@ -298,7 +310,7 @@ function dateLabel(d){
 }
 function scaleItem(it,g){var k=g/100;return {kcal:Math.round(it.kcal*k),p:r1(it.p*k),c:r1(it.c*k),f:r1(it.f*k)}}
 function mealNow(){var h=new Date().getHours();return h<10?'ontbijt':h<15?'lunch':h<21?'diner':'snack'}
-function addEntry(d,data){(S.days[d]=S.days[d]||[]).push(Object.assign({id:uid()},data));if(data.meal)mealOpen[data.meal]=true;markDirty(d)}
+function addEntry(d,data){(S.days[d]=S.days[d]||[]).push(Object.assign({id:uid()},data));if(data.meal){mealOpen[data.meal]=true;saveUI()}markDirty(d)}
 function replaceEntry(d,id,data){var l=dayEntries(d),i=l.findIndex(function(x){return x.id===id});if(i>=0)l[i]=Object.assign({id:id},data);markDirty(d)}
 // Entry uit een product + gram. Bewaart g en de waarden per 100 g (base), zodat je later de hoeveelheid kunt aanpassen.
 function entryFrom(it,g,meal){
@@ -340,7 +352,7 @@ function macroCard(label,val,goal,color){
   return '<div><span>'+label+'</span><b class="num">'+nf(val)+'<small> / '+nf(goal)+' g</small></b>'+thinBar(val,goal,color)+'</div>';
 }
 function thinBar(v,g,c){return '<div class="thinbar"><i style="width:'+(g>0?Math.min(v/g*100,100):0)+'%;background:'+c+'"></i></div>'}
-var mealOpen={}; // welke maaltijden opengeklapt zijn (alleen deze sessie); addEntry klapt de maaltijd open
+var mealOpen=UI.open; // welke maaltijden opengeklapt zijn (bewaard in UIKEY); addEntry klapt de maaltijd open
 function renderToday(){
   var list=dayEntries(date),tot=sumOf(list),g=S.goals,left=g.kcal-tot.kcal,dl=dateLabel(date);
   var prevList=dayEntries(addDays(date,-1)),prevName=date===todayIso()?'gisteren':fmtD(addDays(date,-1),{weekday:'long'});
@@ -1029,6 +1041,7 @@ function renderGoals(){
     '<button class="primary" data-act="gkgsave">Opslaan</button></div>'+
     mealsCard()+productsCard()+
     '<div class="card"><h2>Weet je je doel niet?</h2><p class="hint" style="margin:0 0 10px">Bereken een richtwaarde op basis van je lengte, gewicht en activiteit.</p><button class="secondary" data-tab-go="tips">Naar de doelberekening</button></div>'+
+    '<div class="card"><h2>Weergave</h2><div class="seg" role="group" aria-label="Weergave" style="margin-bottom:8px">'+[['light','Licht'],['dark','Donker'],['auto','Automatisch']].map(function(o){return '<button data-theme-set="'+o[0]+'" aria-pressed="'+(UI.theme===o[0])+'">'+o[1]+'</button>'}).join('')+'</div><p class="hint" style="margin:0">Automatisch volgt de instelling van je telefoon.</p></div>'+
     '<div class="card"><h2>Opslag</h2><p class="hint" style="margin:0">'+(dbCol?'Je gegevens worden privé in je account bewaard en zijn op elk apparaat beschikbaar.':'Je gegevens worden in deze browser bewaard. Open de pagina op hetzelfde apparaat om ze terug te zien.')+'</p></div>';
   $('#view').innerHTML=h;
   updGoalHint();
@@ -1055,7 +1068,7 @@ function updGoalHint(){
 /* ---------- events (pagina) ---------- */
 document.addEventListener('click',function(e){
   if(sh)return;
-  var t=e.target.closest('[data-tab],[data-tab-go],[data-act],[data-add],[data-edit],[data-range],[data-wdel],[data-focus],[data-sugg],[data-preset],[data-prod],[data-savemeal],[data-mealid],[data-wday],[data-goday],[data-copy],[data-toggle]');
+  var t=e.target.closest('[data-tab],[data-tab-go],[data-act],[data-add],[data-edit],[data-range],[data-wdel],[data-focus],[data-sugg],[data-preset],[data-prod],[data-savemeal],[data-mealid],[data-wday],[data-goday],[data-copy],[data-toggle],[data-theme-set]');
   var svg=e.target.closest('#wsvg');
   if(svg){weightPick(e,svg);return}
   if(!t)return;
@@ -1064,8 +1077,9 @@ document.addEventListener('click',function(e){
   if(d.add){openSheet(d.add,null);return}
   if(d.edit){var en=dayEntries(date).find(function(x){return x.id===d.edit});if(en)openSheet(en.meal,en);return}
   if(d.prod){var pd=S.products.find(function(x){return x.id===d.prod});if(pd)openSheet(null,null,pd);return}
+  if(d.themeSet){UI.theme=d.themeSet;saveUI();applyTheme();render();return}
   if(d.copy){copyFromPrev(d.copy);return}
-  if(d.toggle){mealOpen[d.toggle]=!mealOpen[d.toggle];var ty=window.scrollY;render();window.scrollTo(0,ty);return}
+  if(d.toggle){mealOpen[d.toggle]=!mealOpen[d.toggle];saveUI();var ty=window.scrollY;render();window.scrollTo(0,ty);return}
   if(d.savemeal){var ml=MEALS.filter(function(m){return m[0]===d.savemeal})[0];
     openSheet(null,null,null,{id:null,name:'Mijn '+ml[1].toLowerCase(),items:dayEntries(date).filter(function(x){return x.meal===d.savemeal}).map(mealItem)});return}
   if(d.mealid){var sm=S.meals.find(function(x){return x.id===d.mealid});if(sm)openSheet(null,null,null,JSON.parse(JSON.stringify(sm)));return}
@@ -1117,7 +1131,7 @@ document.addEventListener('change',function(e){
 });
 
 function render(){renderTabs();if(tab==='today')renderToday();else if(tab==='week')renderWeek();else if(tab==='weight')renderWeight();else if(tab==='tips')renderTips();else renderGoals()}
-loadLocal();render();initStore();
+applyTheme();loadLocal();render();initStore();
 })();
 </script>
 </body>
