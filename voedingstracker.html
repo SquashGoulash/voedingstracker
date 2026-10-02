@@ -203,7 +203,7 @@ nav.tabs button[aria-current="page"]{color:var(--accent);background:var(--accent
 .inline button{flex:none;height:46px;border-radius:12px;border:0;background:var(--accent);color:var(--accent-ink);font-weight:700;padding:0 18px}
 .notice{background:var(--accent-soft);border-radius:14px;padding:12px 14px;font-size:14px;margin-bottom:12px}
 .result{background:var(--bg);border-radius:16px;padding:14px;margin:4px 0 12px;text-align:center}
-.result b{display:block;font-size:34px;font-weight:800;line-height:1.1}
+.result>b{display:block;font-size:34px;font-weight:800;line-height:1.1}
 .result span{font-size:13.5px;color:var(--muted)}
 .check{display:flex;align-items:center;gap:10px;margin:0 0 14px;font-size:14.5px}
 .check input{width:20px;height:20px;accent-color:var(--accent)}
@@ -265,6 +265,7 @@ var LSKEY='voedingstracker-v1';
 function fixState(){
   S.goals=Object.assign({kcal:2200,p:150,c:250,f:70,kg:0},S.goals||{});
   S.days=S.days||{};S.weights=S.weights||[];S.products=S.products||[];S.water=S.water||{};S.profile=S.profile||{};
+  S.products.forEach(function(p){if(!p.id)p.id=uid()});
 }
 
 /* ---------- opslag ---------- */
@@ -328,6 +329,13 @@ function dateLabel(d){
 function scaleItem(it,g){var k=g/100;return {kcal:Math.round(it.kcal*k),p:r1(it.p*k),c:r1(it.c*k),f:r1(it.f*k)}}
 function mealNow(){var h=new Date().getHours();return h<10?'ontbijt':h<15?'lunch':h<21?'diner':'snack'}
 function addEntry(d,data){(S.days[d]=S.days[d]||[]).push(Object.assign({id:uid()},data));markDirty(d)}
+function replaceEntry(d,id,data){var l=dayEntries(d),i=l.findIndex(function(x){return x.id===id});if(i>=0)l[i]=Object.assign({id:id},data);markDirty(d)}
+// Entry uit een product + gram. Bewaart g en de waarden per 100 g (base), zodat je later de hoeveelheid kunt aanpassen.
+function entryFrom(it,g,meal){
+  var s=scaleItem(it,g);
+  return {name:it.name+' · '+nf(g)+' g',kcal:s.kcal,p:s.p,c:s.c,f:s.f,meal:meal,g:g,
+    base:{name:it.name,kcal:it.kcal,p:it.p,c:it.c,f:it.f,portion:it.portion||100,unit:it.unit||'portie',src:it.src==='own'?'':(it.src||'')}};
+}
 function lastWeight(){var w=S.weights.slice().sort(function(a,b){return a.d<b.d?-1:1});return w.length?w[w.length-1]:null}
 var ICON={
   left:'<svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>',
@@ -414,8 +422,10 @@ function recentFoods(){
   }
   return out;
 }
-function openSheet(meal,entry){
-  sh={meal:meal,mode:entry?'edit':'search',entry:entry||null,q:'',ai:[],aiBusy:false,aiErr:'',list:[],item:null,code:'',msg:'',labelBusy:false,manualCode:'',off:[],offQ:null,offBusy:false,offErr:''};
+function openSheet(meal,entry,prod){
+  var byG=!!(entry&&entry.base&&entry.g>0); // nieuwe entries: aanpassen via hoeveelheid, oude: via totalen
+  sh={meal:meal,mode:prod?'product':entry?(byG?'portion':'edit'):'search',entry:entry||null,prod:prod||null,delArm:false,item:byG?Object.assign({},entry.base):null,grams:byG?entry.g:0,
+    q:'',ai:[],aiBusy:false,aiErr:'',list:[],code:'',msg:'',labelBusy:false,manualCode:'',off:[],offQ:null,offBusy:false,offErr:''};
   renderSheet();
 }
 async function closeSheet(){await stopScan();sh=null;$('#sheetRoot').innerHTML=''}
@@ -462,9 +472,9 @@ function buildResults(){
 function renderSheet(){
   var root=$('#sheetRoot');
   if(!sh){root.innerHTML='';return}
-  var m=sh.mode,title=m==='edit'?'Eten aanpassen':m==='portion'?'Hoeveelheid':'Eten toevoegen';
+  var m=sh.mode,title=m==='product'?'Product bewerken':sh.entry?'Eten aanpassen':m==='portion'?'Hoeveelheid':'Eten toevoegen';
   var mealName=(MEALS.filter(function(x){return x[0]===sh.meal})[0]||[])[1]||'';
-  var h='<div class="backdrop" id="bd"><div class="sheet" role="dialog" aria-modal="true" aria-label="'+title+'"><div class="sheethead"><h2>'+title+(mealName&&m!=='edit'?' <small style="font-weight:400;color:var(--muted);font-size:14px">· '+mealName+'</small>':'')+'</h2><button class="xbtn" data-act="closesheet" aria-label="Sluiten">✕</button></div>';
+  var h='<div class="backdrop" id="bd"><div class="sheet" role="dialog" aria-modal="true" aria-label="'+title+'"><div class="sheethead"><h2>'+title+(mealName&&!sh.entry?' <small style="font-weight:400;color:var(--muted);font-size:14px">· '+mealName+'</small>':'')+'</h2><button class="xbtn" data-act="closesheet" aria-label="Sluiten">✕</button></div>';
   if(m==='search'||m==='scan'||m==='manual'){
     h+='<div class="seg">'+[['search','Zoeken'],['scan','Scannen'],['manual','Handmatig']].map(function(s){return '<button data-mode="'+s[0]+'" aria-pressed="'+(m===s[0])+'">'+s[1]+'</button>'}).join('')+'</div>';
   }
@@ -474,6 +484,8 @@ function renderSheet(){
     h+=scanHTML();
   }else if(m==='portion'){
     h+=portionHTML();
+  }else if(m==='product'){
+    h+=productHTML();
   }else{
     h+=manualHTML();
   }
@@ -501,15 +513,28 @@ function scanHTML(){
   return h;
 }
 function portionHTML(){
-  var it=sh.item,per=it.portion||100,unit=it.unit||'portie';
-  var h='<button class="back" data-act="backsearch">← Terug</button><div class="card" style="box-shadow:none;margin-bottom:12px"><div style="font-weight:800;font-size:18px">'+esc(it.name)+tagFor(it)+'</div><div class="hint num" style="margin:4px 0 0">'+itemPer100(it)+'</div></div>'+
-    '<div class="field"><label for="grams">Hoeveelheid (gram of ml)</label><input id="grams" type="text" inputmode="decimal" value="'+per+'"></div>'+
+  var it=sh.item,per=it.portion||100,unit=it.unit||'portie',ed=!!sh.entry;
+  var h=(ed?'':'<button class="back" data-act="backsearch">← Terug</button>')+'<div class="card" style="box-shadow:none;margin-bottom:12px"><div style="font-weight:800;font-size:18px">'+esc(it.name)+tagFor(it)+'</div><div class="hint num" style="margin:4px 0 0">'+itemPer100(it)+'</div></div>'+
+    '<div class="field"><label for="grams">Hoeveelheid (gram of ml)</label><input id="grams" type="text" inputmode="decimal" value="'+(sh.grams||per)+'"></div>'+
     '<div class="chips">'+[[0.5,'½ '+unit],[1,'1 '+unit],[2,'2 '+unit]].map(function(o){return '<button class="chip" data-g="'+Math.round(per*o[0])+'">'+esc(o[1])+' · '+nf(per*o[0])+' g</button>'}).join('')+'<button class="chip" data-g="100">100 g</button></div>'+
     '<div class="result"><b class="num" id="pk">0</b><span>kcal</span><div class="num" id="pm" style="margin-top:6px;font-size:14px"></div></div>';
   if(it.src==='off')h+='<div class="hint" style="margin:-4px 0 10px">Gegevens uit Open Food Facts, een open database die door vrijwilligers wordt bijgehouden. Klopt iets niet? Vergelijk met de verpakking.</div>';
+  if(ed)return h+'<div class="actions"><button class="primary" data-act="addportion">Opslaan</button><button class="ghost" data-act="delentry">Verwijder</button></div>'+
+    '<div class="or"><a href="#" data-act="manualedit" style="color:var(--accent);font-weight:700">Waarden zelf aanpassen</a></div>';
   if(it.src==='ai'||it.src==='label'||it.isNew)h+='<label class="check"><input type="checkbox" id="saveProd"'+(it.src!=='ai'?' checked':'')+'> Bewaar in Mijn producten'+(it.barcode?' (met barcode)':'')+'</label>';
   h+='<button class="primary" data-act="addportion">Toevoegen aan '+esc((MEALS.filter(function(x){return x[0]===sh.meal})[0]||['','maaltijd'])[1].toLowerCase())+'</button>';
   return h;
+}
+function productHTML(){
+  var p=sh.prod,v=function(x){return x==null?'':esc(String(x))},fld=function(id,label,val,mode){return '<div class="field"><label for="'+id+'">'+label+'</label><input id="'+id+'" type="text"'+(mode?' inputmode="'+mode+'"':'')+' autocomplete="off" value="'+v(val)+'"></div>'};
+  return fld('pName','Naam',p.name)+
+    '<div class="hint" style="margin:0 0 8px">Voedingswaarden per 100 g (of 100 ml).</div>'+
+    fld('pKcal','Calorieën (kcal)',p.kcal,'decimal')+
+    '<div class="grid3">'+fld('pP','Eiwit (g)',p.p,'decimal')+fld('pC','Koolh. (g)',p.c,'decimal')+fld('pF','Vet (g)',p.f,'decimal')+'</div>'+
+    '<div class="grid2">'+fld('pGram','1 portie in gram',p.portion||100,'decimal')+fld('pUnit','Naam van de portie',p.unit||'portie')+'</div>'+
+    fld('pCode','Barcode (optioneel)',p.barcode,'numeric')+
+    '<div class="hint">Wijzigingen gelden voor wat je vanaf nu toevoegt. Wat je al gelogd hebt, blijft zoals het was.</div>'+
+    '<div class="actions"><button class="primary" data-act="saveprod">Opslaan</button><button class="ghost" data-act="delprod">'+(sh.delArm?'Zeker weten?':'Verwijder')+'</button></div>';
 }
 function updatePortion(){
   var g=num($('#grams').value),it=sh.item,s=scaleItem(it,g);
@@ -700,8 +725,10 @@ document.addEventListener('click',async function(e){
   if(e.target.id==='bd'&&sh){closeSheet();return}
   if(!t||!sh)return;
   if(t.dataset.mode){await stopScan();sh.mode=t.dataset.mode;sh.code='';sh.msg='';renderSheet();return}
-  if(t.dataset.pick!=null){sh.item=sh.list[+t.dataset.pick];sh.mode='portion';renderSheet();return}
-  if(t.dataset.rec!=null){var r=sh.recent[+t.dataset.rec];sh.entry=null;sh.mode='manual';sh.manualName=r.name;sh.mode='manual';
+  if(t.dataset.pick!=null){sh.item=sh.list[+t.dataset.pick];sh.grams=0;sh.mode='portion';renderSheet();return}
+  if(t.dataset.rec!=null){var r=sh.recent[+t.dataset.rec];sh.entry=null;
+    if(r.base&&r.g>0){sh.item=Object.assign({},r.base);sh.grams=r.g;sh.mode='portion';renderSheet();return}
+    sh.mode='manual';sh.manualName=r.name;
     renderSheet();$('#fKcal').value=r.kcal;$('#fP').value=r.p;$('#fC').value=r.c;$('#fF').value=r.f;return}
   if(t.dataset.g){$('#grams').value=t.dataset.g;updatePortion();return}
   var a=t.dataset.act;
@@ -715,11 +742,29 @@ document.addEventListener('click',async function(e){
   else if(a==='manualcode'){sh.manualCode=sh.code;sh.manualName='';sh.mode='manual';renderSheet()}
   else if(a==='addportion'){
     var it=sh.item,g=num($('#grams').value);if(!(g>0)){$('#grams').focus();return}
-    var s=scaleItem(it,g);
     var chk=$('#saveProd');
     if(chk&&chk.checked)saveProduct(it);
-    addEntry(date,{name:it.name+' · '+nf(g)+' g',kcal:s.kcal,p:s.p,c:s.c,f:s.f,meal:sh.meal});
-    toast('Toegevoegd');closeSheet();render();
+    var data=entryFrom(it,g,sh.meal);
+    if(sh.entry){replaceEntry(date,sh.entry.id,data);toast('Opgeslagen')}
+    else{addEntry(date,data);toast('Toegevoegd')}
+    closeSheet();render();
+  }
+  else if(a==='manualedit'){e.preventDefault();sh.mode='edit';renderSheet()}
+  else if(a==='saveprod'){
+    var nm=$('#pName').value.trim();if(!nm){$('#pName').focus();return}
+    var pp=num($('#pP').value),pc=num($('#pC').value),pf=num($('#pF').value),kr=$('#pKcal').value.trim();
+    var kc=kr===''?pp*4+pc*4+pf*9:num(kr);if(!(kc>0)){$('#pKcal').focus();return}
+    var bc=($('#pCode').value||'').replace(/\D/g,''),id=sh.prod.id;
+    if(S.products.some(function(x){return x.id!==id&&x.name.toLowerCase()===nm.toLowerCase()})){toast('Er is al een product met deze naam');$('#pName').focus();return}
+    if(bc&&S.products.some(function(x){return x.id!==id&&x.barcode===bc})){toast('Deze barcode hoort al bij een ander product');$('#pCode').focus();return}
+    var pi=S.products.findIndex(function(x){return x.id===id});
+    var pr={id:id,name:nm.slice(0,80),kcal:Math.round(kc),p:r1(pp),c:r1(pc),f:r1(pf),portion:Math.round(num($('#pGram').value))||100,unit:$('#pUnit').value.trim().slice(0,20)||'portie',barcode:bc};
+    if(pi>=0)S.products[pi]=pr;else S.products.push(pr);
+    markDirty(null);toast('Product opgeslagen');closeSheet();render();
+  }
+  else if(a==='delprod'){
+    if(!sh.delArm){sh.delArm=true;t.textContent='Zeker weten?';return} // tweede tik verwijdert pas
+    S.products=S.products.filter(function(x){return x.id!==sh.prod.id});markDirty(null);toast('Product verwijderd');closeSheet();render();
   }
   else if(a==='savemanual'){
     var qty=num($('#fQty').value)||1,p=num($('#fP').value),c=num($('#fC').value),fa=num($('#fF').value),kcRaw=$('#fKcal').value.trim();
@@ -727,10 +772,8 @@ document.addEventListener('click',async function(e){
     if(!(kc1>0)){$('#fKcal').focus();return}
     var name=$('#fName').value.trim()||'Eten';
     var data={name:name,kcal:Math.round(kc1*qty),p:r1(p*qty),c:r1(c*qty),f:r1(fa*qty),meal:sh.meal};
-    if(sh.entry){
-      var list=dayEntries(date),i=list.findIndex(function(x){return x.id===sh.entry.id});
-      if(i>=0)list[i]=Object.assign({id:sh.entry.id},data);markDirty(date);
-    }else{
+    if(sh.entry)replaceEntry(date,sh.entry.id,data); // totalen handmatig: g en base vervallen
+    else{
       var chk2=$('#saveProd');
       if(chk2&&chk2.checked){
         var gr=num($('#fGram').value)||100,k=100/gr;
@@ -922,10 +965,17 @@ function renderGoals(){
     '<button class="primary" data-act="gsave">Doel opslaan</button></div>'+
     '<div class="card"><h2>Streefgewicht</h2><div class="field"><label for="gKg">Gewicht (kg), leeg = geen doel</label><input id="gKg" type="text" inputmode="decimal" value="'+(g.kg>0?g.kg:'')+'"></div>'+
     '<button class="primary" data-act="gkgsave">Opslaan</button></div>'+
+    productsCard()+
     '<div class="card"><h2>Weet je je doel niet?</h2><p class="hint" style="margin:0 0 10px">Bereken een richtwaarde op basis van je lengte, gewicht en activiteit.</p><button class="secondary" data-tab-go="tips">Naar de doelberekening</button></div>'+
     '<div class="card"><h2>Opslag</h2><p class="hint" style="margin:0">'+(dbCol?'Je gegevens worden privé in je account bewaard en zijn op elk apparaat beschikbaar.':'Je gegevens worden in deze browser bewaard. Open de pagina op hetzelfde apparaat om ze terug te zien.')+'</p></div>';
   $('#view').innerHTML=h;
   updGoalHint();
+}
+function productsCard(){
+  var ps=S.products.slice().sort(function(a,b){return a.name.localeCompare(b.name,'nl')});
+  var h='<div class="card"><h2>Mijn producten'+(ps.length?'<small class="num">'+ps.length+'</small>':'')+'</h2>';
+  if(!ps.length)return h+'<p class="hint" style="margin:0">Nog geen eigen producten. Vink bij het toevoegen "Bewaar in Mijn producten" aan, dan verschijnen ze hier.</p></div>';
+  return h+ps.map(function(p){return '<button class="res" data-prod="'+esc(p.id)+'"><div><div class="n">'+esc(p.name)+'</div><div class="m num">'+itemPer100(p)+'</div></div><div class="r">Bewerk</div></button>'}).join('')+'</div>';
 }
 function updGoalHint(){
   if(!$('#gHint'))return;
@@ -938,7 +988,7 @@ function updGoalHint(){
 /* ---------- events (pagina) ---------- */
 document.addEventListener('click',function(e){
   if(sh)return;
-  var t=e.target.closest('[data-tab],[data-tab-go],[data-act],[data-add],[data-edit],[data-range],[data-wdel],[data-focus],[data-sugg],[data-preset]');
+  var t=e.target.closest('[data-tab],[data-tab-go],[data-act],[data-add],[data-edit],[data-range],[data-wdel],[data-focus],[data-sugg],[data-preset],[data-prod]');
   var svg=e.target.closest('#wsvg');
   if(svg){weightPick(e,svg);return}
   if(!t)return;
@@ -946,10 +996,11 @@ document.addEventListener('click',function(e){
   if(d.tab||d.tabGo){tab=d.tab||d.tabGo;render();window.scrollTo(0,0);return}
   if(d.add){openSheet(d.add,null);return}
   if(d.edit){var en=dayEntries(date).find(function(x){return x.id===d.edit});if(en)openSheet(en.meal,en);return}
+  if(d.prod){var pd=S.products.find(function(x){return x.id===d.prod});if(pd)openSheet(null,null,pd);return}
   if(d.range!=null){range=+d.range;selW=null;render();return}
   if(d.wdel){S.weights=S.weights.filter(function(p){return p.d!==d.wdel});selW=null;markDirty(null);render();return}
   if(d.focus){tipFocus=d.focus;tipSeed=0;render();return}
-  if(d.sugg!=null){var x=window._sg[+d.sugg];if(x){var meal=mealNow();addEntry(todayIso(),{name:x.it.name+' · '+nf(x.best.g)+' g',kcal:x.best.s.kcal,p:x.best.s.p,c:x.best.s.c,f:x.best.s.f,meal:meal});toast('Toegevoegd aan '+MEALS.filter(function(m){return m[0]===meal})[0][1].toLowerCase());render()}return}
+  if(d.sugg!=null){var x=window._sg[+d.sugg];if(x){var meal=mealNow();addEntry(todayIso(),entryFrom(x.it,x.best.g,meal));toast('Toegevoegd aan '+MEALS.filter(function(m){return m[0]===meal})[0][1].toLowerCase());render()}return}
   if(d.preset!=null){var pr=PRESETS[+d.preset],k=num($('#gK').value)||S.goals.kcal;
     $('#gP').value=Math.round(k*pr[1]/100/4);$('#gC').value=Math.round(k*pr[2]/100/4);$('#gF').value=Math.round(k*pr[3]/100/9);
     document.querySelectorAll('[data-preset]').forEach(function(b){b.setAttribute('aria-pressed',String(b===t))});updGoalHint();return}

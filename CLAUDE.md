@@ -45,12 +45,14 @@ Belangrijkste functies:
 |---|---|
 | Tabbladen | `renderTabs`, `renderToday`, `renderWeight`, `renderTips`, `renderGoals` |
 | Vandaag | `ringSVG`, `macroCard`, `streak`, `avg7`, `sparkline`, `heroMsg` |
-| Invoer-sheet | `openSheet`, `renderSheet`, `buildResults`, `searchLocal`, `portionHTML`, `updatePortion`, `manualHTML`, `saveProduct` |
+| Invoer-sheet | `openSheet(meal, entry, prod)`, `renderSheet`, `buildResults`, `searchLocal`, `portionHTML` (ook voor bewerken), `updatePortion`, `manualHTML`, `productHTML`, `saveProduct` |
+| Entries | `addEntry`, `replaceEntry`, `entryFrom(item, g, meal)` (maakt een entry mét `g` en `base`; gebruik deze voor elke entry uit een product) |
 | Scanner | `loadScanLib`, `startScan`, `stopScan`, `scanFromFile`, `onCode` |
 | Open Food Facts | Barcode: `offLookup` (8 s timeout), `offCache`, `offStore`. Op naam: `offSearch` (knop of Enter in zoekveld), `offSearchFetch` (`cgi/search.pl`, filter Nederland, sortering op populariteit, 1× opnieuw bij 503), `offQCache`, `offQStore`. Gedeeld: `offToItem` (OFF-product → item met `src:'off'`) |
 | AI | `aiSearch` (zoeken), `readLabel` (etiketfoto), `askIdeas` (tips) |
 | Gewicht | `weightChart` (inline SVG), `weightPick`, `readoutFor` |
 | Tips | `remaining`, `suggestions`, `tipList`, `doCalc`, `showCalc` |
+| Doelen | `renderGoals`, `productsCard` (Mijn producten: tik = bewerken in de sheet, modus `product`) |
 | Opslag | `loadLocal`, `saveLocal`, `markDirty`, `flush`, `initStore` |
 
 Events: twee `document`-brede `click` listeners. De eerste handelt alleen de sheet af (`if(!sh) return`), de tweede alleen de pagina (`if(sh) return`). Knoppen gebruiken `data-*` attributen (`data-act`, `data-tab`, `data-add`, `data-edit`, `data-pick`, enz.). Voeg nieuwe acties toe in de juiste listener.
@@ -60,8 +62,9 @@ Events: twee `document`-brede `click` listeners. De eerste handelt alleen de she
 ```js
 S = {
   goals:    { kcal, p, c, f, kg },            // dagdoel + streefgewicht (kg=0: geen doel)
-  days:     { 'YYYY-MM-DD': [ {id, name, kcal, p, c, f, meal} ] },
+  days:     { 'YYYY-MM-DD': [ {id, name, kcal, p, c, f, meal, g?, base?} ] },
                                                // meal: ontbijt | lunch | diner | snack
+                                               // g + base {name, kcal, p, c, f, portion, unit, src}: alleen bij entries uit een product
   weights:  [ { d: 'YYYY-MM-DD', kg } ],       // één meting per datum
   products: [ { id, name, kcal, p, c, f, portion, unit, barcode } ],
                                                // "Mijn producten", waarden PER 100 G
@@ -70,7 +73,7 @@ S = {
 }
 ```
 
-Voeding in `days` is al omgerekend naar de gegeten hoeveelheid (totalen). De entry onthoudt dus niet de gram of de waarden per 100 g; de hoeveelheid staat alleen in de naam (bijv. "Havermout · 40 g").
+Voeding in `days` is al omgerekend naar de gegeten hoeveelheid (totalen: `kcal`, `p`, `c`, `f`). Entries uit een product (zoeken, scannen, Eerder gegeten, Tips) bewaren daarnaast `g` en een kopie van de waarden per 100 g in `base`. Bewerken gaat dan via de hoeveelheidsstap. Handmatige entries, entries van vóór 2026-10-02 en entries die via "Waarden zelf aanpassen" zijn gewijzigd hebben geen `g`/`base` en worden op totalen bewerkt. `base` is een kopie, dus een product bewerken of verwijderen verandert eerdere entries niet.
 
 De ingebouwde database `FOODS` (±120 items, per 100 g, met `portion` en `unit`) staat bovenaan het script en wordt omgezet naar `DB`. Waarden zijn gemiddelden uit eigen kennis, niet uit een officiële bron.
 
@@ -106,9 +109,8 @@ De app is gebouwd zonder te kunnen draaien in een browser. Test dit eerst:
 
 ## Bekende beperkingen
 
-- Entries onthouden geen gram of waarden per 100 g, dus een entry bewerken kan alleen op totalen.
-- "Mijn producten" kun je nu alleen toevoegen of overschrijven, niet bewerken of verwijderen.
-- "Eerder gegeten" opent het handmatige formulier, niet de hoeveelheidsstap.
+- Oude en handmatige entries hebben geen `g`/`base` en zijn alleen op totalen te bewerken; "Eerder gegeten" opent bij die entries het handmatige formulier.
+- De maaltijd van een entry kun je niet wijzigen (alleen verwijderen en opnieuw toevoegen).
 - Barcode: eerst eigen producten, dan Open Food Facts. Zoeken op naam in Open Food Facts gaat via een knop (limiet ±10 zoekopdrachten per minuut; de server geeft vaak 503).
 - Waarden uit AI-zoeken en etiketlezen zijn schattingen; de UI markeert dit ("Schatting").
 - Geen export/import, geen weekoverzicht, geen meerdere profielen.
@@ -116,7 +118,7 @@ De app is gebouwd zonder te kunnen draaien in een browser. Test dit eerst:
 
 ## Roadmap (voorstellen)
 
-1. Producten beheren (bewerken/verwijderen) en entries opslaan met gram + per-100 g-waarden.
+1. ~~Producten beheren en entries met gram~~ **Klaar** (Doelen → Mijn producten; entries met `g` + `base`).
 2. Weekoverzicht: gemiddelde kcal en macro's, grafiek per dag.
 3. Export/import als CSV/JSON (in een Artifact via de `downloads` capability).
 4. Favorieten en maaltijden combineren (bijv. "mijn standaard ontbijt").
